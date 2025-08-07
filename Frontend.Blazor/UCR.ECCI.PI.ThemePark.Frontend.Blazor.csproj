@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>65dbdd64-53e9-49c3-a103-b9a86f2dadea</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Frontend.Blazor.Client\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Client.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.DependencyInjection\UCR.ECCI.PI.ThemePark.Frontend.Blazor.DependencyInjection.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.Presentation\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.6" />
+	<PackageReference Include="Microsoft.Identity.Web" Version="3.9.3" />
+	<PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="3.9.3" />
+    <PackageReference Include="MudBlazor" Version="8.6.0" />
+  </ItemGroup>
+
+</Project>

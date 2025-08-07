@@ -1,0 +1,36 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+
+<AuthorizeView Policy="AtLeastOnePermission">
+    <Authorized>
+        <MudAppBar Elevation="0" Fixed="true" Dense="true" Style="top: 64px; height: 40px;">
+            <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <!-- Hamburger Menu for Mobile -->
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+            </MudHidden>
+
+            <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                <MudNavMenu Class="d-flex flex-row flex-grow-1 justify-content-start horizontal-nav-menu">
+                    <MudNavLink Href="/" Match="NavLinkMatch.All">Inicio</MudNavLink>
+                    <MudNavLink Href="/user-management">Administración de Usuarios</MudNavLink>
+                    <MudNavLink Href="/universidades">Administración de Universidades</MudNavLink>
+                            <MudNavLink Href="/edificios">Administración de Edificios</MudNavLink>
+                </MudNavMenu>
+            </MudHidden>
+        </MudAppBar>
+
+        <MudDrawer Open="@_drawerOpen" Anchor="Anchor.Left" Elevation="1"
+                   ClipMode="DrawerClipMode.Never" Breakpoint="Breakpoint.Md"
+                   Variant="DrawerVariant.Temporary" OnClose="@(() => _drawerOpen = false)">
+            <MudNavLink Href="/" Match="NavLinkMatch.All" OnClick="@ToggleDrawer">Inicio</MudNavLink>
+            <MudNavLink Href="/user-management" OnClick="@ToggleDrawer">Administración de Usuarios</MudNavLink>
+            <MudNavLink Href="/universidades" OnClick="@ToggleDrawer">Gestión de Universidades</MudNavLink>
+            <MudNavLink Href="/edificios" OnClick="@ToggleDrawer">Gestión de Edificios</MudNavLink>
+        </MudDrawer>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private bool _drawerOpen = false;
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+}

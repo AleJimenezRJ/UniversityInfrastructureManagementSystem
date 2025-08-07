@@ -1,0 +1,622 @@
+﻿@* 
+AS 03
+Students: Anderson Vargas
+          Keylor Palacios 
+User Stories:
+    * SQL-IF-001-001 Building pages color view (#380)
+    * SQL-IF-001-002 Learning Space pages color view (#381)
+    * SQL-IF-001-003 Learning Components color view (#382)
+*@
+
+@using Microsoft.Extensions.Logging
+@using MudBlazor.Utilities
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.Spaces
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Exceptions
+@using SpacesVO = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces
+@using UMVO = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using System.Globalization
+
+@attribute [Authorize]
+@inject IBuildingsServices BuildingServices
+@inject IFloorServices FloorServices
+@inject ILearningSpaceServices LearningSpaceServices
+@inject ISnackbar Snackbar 
+@inject NavigationManager Navigation
+
+@page "/edificios/{buildingId:int}/pisos/{floorId:int}/espacios-de-aprendizaje/crear"
+
+<MudBreadcrumbs Items="_items">
+    <ItemTemplate Context="item">
+        @if (item.Disabled)
+        {
+            <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+        }
+        else
+        {
+            <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+        }
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+<PageTitle>Creación del Espacio de Aprendizaje</PageTitle>
+
+<h1 class="text-h1 mt-4 ms-3">Creación del Espacio de Aprendizaje</h1>
+
+<MudPaper Class="pa-6 custom-paper">
+
+    @if (this.IsLoading)
+    {
+        <Spinner />
+    }
+    else if (!this.IsBuildingValid || !this.IsFloorValid)
+    {
+        <MudAlert Severity="@(UserMessageSeverity)" Class="mb-4">@UserMessage</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@GoBack">Volver</MudButton>
+    }
+    else
+    {
+        <MudGrid GutterSize="3">
+
+            <MudItem xs="6" sm="3">
+                <MudText Class="fw-bold text-h3">Edificio:</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="9">
+                <MudText Class="text-body">@this.BuildingName</MudText>
+            </MudItem>
+
+            <MudItem xs="6" sm="3">
+                <MudText Class="fw-bold text-h3">Piso:</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="9">
+                <MudText Class="text-body">@this.FloorNumber</MudText>
+            </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudText Class="text-h3 mb-2">Nombre</MudText>
+            <MudTextField @bind-Value="LearningSpaceName" Variant="Variant.Filled" FullWidth="true"
+                Error="@(!string.IsNullOrWhiteSpace(NameError))"
+                ErrorText="@NameError"
+                OnBlur="ValidateName" OnChanged="ValidateName" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudText Class="text-h3 mb-2">Ancho (m)</MudText>
+            <MudNumericField T="double"
+                @bind-Value="Width"
+                Culture="CultureInfo.InvariantCulture"
+                Variant="Variant.Filled"
+                FullWidth="true"
+                Min="0"
+                Immediate="true"
+                Error="@(!string.IsNullOrWhiteSpace(WidthError))"
+                ErrorText="@WidthError"
+                OnBlur="ValidateWidth"
+                OnChanged="ValidateWidth" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudText Class="text-h3 mb-2">Capacidad máxima</MudText>
+            <MudNumericField T="int" @bind-Value="MaxCapacity" Variant="Variant.Filled" FullWidth="true" Min="0"
+                Error="@(!string.IsNullOrWhiteSpace(MaxCapacityError))"
+                ErrorText="@MaxCapacityError"
+                OnBlur="ValidateMaxCapacity" OnChanged="ValidateMaxCapacity" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudText Class="text-h3 mb-2">Altura (m)</MudText>
+            <MudNumericField T="double"
+                @bind-Value="Height"
+                Culture="CultureInfo.InvariantCulture"
+                Variant="Variant.Filled"
+                FullWidth="true"
+                Min="0"
+                Error="@(!string.IsNullOrWhiteSpace(HeightError))"
+                ErrorText="@HeightError"
+                Immediate="true"
+                OnBlur="ValidateHeight"
+                OnChanged="ValidateHeight" />
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudText Class="text-h3 mb-2">Tipo de espacio</MudText>
+             <MudSelect T="string" Variant="Variant.Filled" @bind-Value="Type" FullWidth="true"
+                Error="@(!string.IsNullOrWhiteSpace(TypeError))"
+                ErrorText="@TypeError"
+                OnBlur="ValidateType">
+                @foreach (var spaceType in SpaceTypes)
+                {
+                    <MudSelectItem Value="@spaceType.Value">@spaceType.Display</MudSelectItem>
+                }
+            </MudSelect> 
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudText Class="text-h3 mb-2">Largo (m)</MudText>
+            <MudNumericField T="double"
+                @bind-Value="Length"
+                Culture="CultureInfo.InvariantCulture"
+                Variant="Variant.Filled"
+                FullWidth="true"
+                Min="0"
+                Immediate="true"
+                Error="@(!string.IsNullOrWhiteSpace(LengthError))"
+                ErrorText="@LengthError"
+                OnBlur="ValidateLength"
+                OnChanged="ValidateLength" />
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudText Class="text-h3 mb-2">Color del piso</MudText>
+            <ColorPicker 
+                Value="@this.ColorFloor"
+                ValueChanged="@(v => this.ColorFloor = v)"
+                ErrorText="@this.ColorFloorError"
+                OnBlur="ValidateColorFloor"
+                OnChanged="ValidateColorFloor" />
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudText Class="text-h3 mb-2">Color de las paredes</MudText>
+            <ColorPicker 
+                Value="@this.ColorWalls"
+                ValueChanged="@(v => this.ColorWalls = v)"
+                ErrorText="@this.ColorWallsError"
+                OnBlur="ValidateColorWalls"
+                OnChanged="ValidateColorWalls" />
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <MudText Class="text-h3 mb-2">Color del cielo raso</MudText>
+            <ColorPicker 
+                Value="@this.ColorCeiling"
+                ValueChanged="@(v => this.ColorCeiling = v)"
+                ErrorText="@this.ColorCeilingError"
+                OnBlur="ValidateColorCeiling"
+                OnChanged="ValidateColorCeiling" />
+        </MudItem>
+    </MudGrid>
+
+         <MudItem xs="12">
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 1.5rem; margin-top: 1rem;">
+                @if (!string.IsNullOrEmpty(UserMessage))
+                {
+                    <MudAlert Severity="@(UserMessageSeverity)" Style="margin: 0;">@UserMessage</MudAlert>
+                }
+                <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="GoBack">
+                    Cancelar
+                </CustomButton>
+                <CustomButton ButtonType="add" OnClick="CreateLearningSpaceWeb">
+                    Agregar
+                </CustomButton>
+            </div>
+        </MudItem>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>
+    /// Building Id of the learning space.
+    /// </summary>
+    [Parameter]
+    public int buildingId { get; set; }
+
+    /// <summary>
+    /// Flor ID to display the learning spaces.
+    /// </summary>
+    [Parameter]
+    public int floorId { get; set; }
+
+    /// <summary>
+    /// Building name of the learning space.
+    /// </summary>
+    private string BuildingName = "";
+
+    /// <summary>
+    /// Floor number for the learning space.
+    /// </summary>
+    private int FloorNumber;
+
+    /// <summary>
+    /// Name of the learning space.
+    /// </summary>
+    private string LearningSpaceName = "";
+
+    /// <summary>
+    /// Type of the learning space.
+    /// </summary>
+    private string Type = "";
+
+    /// <summary>
+    /// Maximum capacity of the learning space.
+    /// </summary>
+    private int MaxCapacity;
+
+    /// <summary>
+    /// Height of the learning space in meters.
+    /// </summary>
+    private double Height;
+
+    /// <summary>
+    /// Width of the learning space in meters.
+    /// </summary>
+    private double Width;
+
+    /// <summary>
+    /// Length of the learning space in meters.
+    /// </summary>
+    private double Length;
+
+    /// <summary>
+    /// Color of the ceiling in the learning space.
+    /// </summary>
+    private string ColorCeiling = "";
+
+    /// <summary>
+    /// Color of the walls in the learning space.
+    /// </summary>
+    private string ColorWalls = "";
+
+    /// <summary>
+    /// Color of the floor in the learning space.
+    /// </summary>
+    private string ColorFloor = "";
+
+    /// <summary>
+    /// Breadcrumb items for navigation.
+    /// </summary>
+    private List<BreadcrumbItem> _items = new();
+
+    protected override void OnParametersSet()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+            new BreadcrumbItem("INICIO", href: "/"),
+            new BreadcrumbItem("EDIFICIOS", href: "/edificios"),
+            new BreadcrumbItem("PISOS", href: $"/edificios/{buildingId}/pisos"),
+            new BreadcrumbItem("ESPACIOS DE APRENDIZAJE", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje"),
+            new BreadcrumbItem("CREAR ESPACIO DE APRENDIZAJE", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/crear")
+        };
+    }
+
+    /// <summary>
+    /// List of available space types for the form.
+    /// </summary>
+    private readonly List<(string Display, string Value)> SpaceTypes = new()
+    {
+        ("Laboratorio", "Laboratory"),
+        ("Aula", "Classroom"),
+        ("Auditorio", "Auditorium")
+    };
+
+    /// <summary>
+    /// User message to display on the form.
+    /// </summary>
+    private string UserMessage = "";
+
+    /// <summary>
+    /// User message severity to display on the form.
+    /// </summary>
+    private Severity UserMessageSeverity = Severity.Info;
+
+    /// <summary>
+    /// Shows whether the form is currently loading.
+    /// </summary>
+    private bool IsLoading = true;
+
+    /// <summary>
+    /// Shows whether the building is valid or not.
+    /// </summary>
+    private bool IsBuildingValid = true;
+
+    /// <summary>
+    /// Shows whether the floor is valid or not.
+    /// </summary>
+    private bool IsFloorValid = true;
+
+    /// <summary>
+    /// Error message for the ceiling color field. Displayed when the selected value is invalid or missing.
+    /// </summary>
+    private string ColorCeilingError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the wall color field. Displayed when the selected value is invalid or missing.
+    /// </summary>
+    private string ColorWallsError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the floor color field. Displayed when the selected value is invalid or missing.
+    /// </summary>
+    private string ColorFloorError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the name field. Displayed when the name is empty or does not meet validation criteria.
+    /// </summary>
+    private string NameError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the width field. Displayed when the width is not a valid positive number.
+    /// </summary>
+    private string WidthError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the maximum capacity field. Displayed when the value is not a valid positive integer.
+    /// </summary>
+    private string MaxCapacityError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the height field. Displayed when the height is not a valid positive number.
+    /// </summary>
+    private string HeightError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the type field. Displayed when the selected type is invalid or missing.
+    /// </summary>
+    private string TypeError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Error message for the length field. Displayed when the length is not a valid positive number.
+    /// </summary>
+    private string LengthError { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Validates the 'Name' field and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateName()
+    {
+        if (!UMVO.EntityName.TryCreate(LearningSpaceName, out _))
+            NameError = "El nombre es obligatorio y debe tener menos de 100 caracteres.";
+        else
+            NameError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the 'Width' field and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateWidth()
+    {
+        if (!SpacesVO.Size.TryCreate(Width, out _))
+            WidthError = "El ancho debe ser un número positivo mayor a 0.";
+        else
+            WidthError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the 'MaxCapacity' field and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateMaxCapacity()
+    {
+        if (!SpacesVO.Capacity.TryCreate(MaxCapacity, out _))
+            MaxCapacityError = "La capacidad máxima debe ser un número entero positivo.";
+        else
+            MaxCapacityError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the 'Height' field and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateHeight()
+    {
+        if (!SpacesVO.Size.TryCreate(Height, out _))
+            HeightError = "La altura debe ser un número positivo mayor a 0.";
+        else
+            HeightError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the 'Type' field and sets the corresponding error message if the type is invalid.
+    /// </summary>
+    private void ValidateType()
+    {
+        if (!SpacesVO.LearningSpaceType.TryCreate(Type, out _))
+            TypeError = "Debe seleccionar un tipo de espacio válido.";
+        else
+            TypeError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the 'Length' field and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateLength()
+    {
+        if (!SpacesVO.Size.TryCreate(Length, out _))
+            LengthError = "El largo debe ser un número positivo mayor a 0.";
+        else
+            LengthError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the color selected for the ceiling and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateColorCeiling()
+    {
+        if (!UMVO.Colors.TryCreate(ColorCeiling, out _))
+            ColorCeilingError = "Debe seleccionar un color válido para el cielo raso.";
+        else
+            ColorCeilingError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the color selected for the walls and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateColorWalls()
+    {
+        if (!UMVO.Colors.TryCreate(ColorWalls, out _))
+            ColorWallsError = "Debe seleccionar un color válido para las paredes.";
+        else
+            ColorWallsError = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the color selected for the floor and sets the corresponding error message if invalid.
+    /// </summary>
+    private void ValidateColorFloor()
+    {
+        if (!UMVO.Colors.TryCreate(ColorFloor, out _))
+            ColorFloorError = "Debe seleccionar un color válido para el piso.";
+        else
+            ColorFloorError = string.Empty;
+    }
+
+    /// <summary>
+    /// Creates a new learning space using the provided form data.
+    /// </summary>
+    /// <returns>
+    /// A Task representing the asynchronous operation.
+    /// </returns>
+    private async Task CreateLearningSpaceWeb()
+    {
+        StateHasChanged();
+
+        bool created = false;
+
+        // Validate each field
+        ValidateName();
+        ValidateWidth();
+        ValidateMaxCapacity();
+        ValidateHeight();
+        ValidateType();
+        ValidateLength();
+        ValidateColorCeiling();
+        ValidateColorWalls();
+        ValidateColorFloor();
+
+        // If any specific field error exists, do not proceed
+        if (!string.IsNullOrEmpty(NameError) || !string.IsNullOrEmpty(WidthError) || !string.IsNullOrEmpty(MaxCapacityError) ||
+            !string.IsNullOrEmpty(HeightError) || !string.IsNullOrEmpty(TypeError) || !string.IsNullOrEmpty(LengthError) ||
+            !string.IsNullOrEmpty(ColorCeilingError) || !string.IsNullOrEmpty(ColorWallsError) || !string.IsNullOrEmpty(ColorFloorError))
+        {
+            // Do not set global error here, specific errors shown in fields only
+            return;
+        }
+
+        try
+        {
+
+            this.UserMessage = string.Empty;
+            this.UserMessageSeverity = Severity.Info;
+
+            var learningSpace = new LearningSpace(
+                UMVO.EntityName.Create(this.LearningSpaceName),
+                SpacesVO.LearningSpaceType.Create(this.Type),
+                SpacesVO.Capacity.Create(this.MaxCapacity),
+                SpacesVO.Size.Create(this.Height),
+                SpacesVO.Size.Create(this.Width),
+                SpacesVO.Size.Create(this.Length),
+                UMVO.Colors.Create(this.ColorFloor),
+                UMVO.Colors.Create(this.ColorWalls),
+                UMVO.Colors.Create(this.ColorCeiling));
+
+            created = await LearningSpaceServices.CreateLearningSpaceAsync(
+                this.floorId,
+                learningSpace);
+
+            if (created)
+            {
+                Snackbar.Add("¡Se creó el espacio de aprendizaje correctamente!", Severity.Success);
+                StateHasChanged();
+                this.GoBack();
+                return;
+            }
+            this.UserMessage = "No se pudo crear el espacio de aprendizaje. Por favor, intente nuevamente.";
+            this.UserMessageSeverity = Severity.Error;
+        }
+        catch (DomainException ex)
+        {
+            UserMessage = ex.Message;
+            UserMessageSeverity = ex switch
+            {
+                ValidationException => Severity.Error,
+                DuplicatedEntityException => Severity.Error,
+                NotFoundException => Severity.Error,
+                _ => Severity.Error
+            };
+        }
+        catch (Exception ex)
+        {
+            UserMessage = $"Ocurrió un error inesperado: {ex.Message}";
+            UserMessageSeverity = Severity.Error;
+        }
+    }
+
+
+
+    /// <summary>
+    /// Navigates the user back to the previous page.
+    /// </summary>
+    private void GoBack()
+    {
+        if (!this.IsBuildingValid)
+        {
+            Navigation.NavigateTo("/edificios");
+        }
+        else if (!this.IsFloorValid)
+        {
+            Navigation.NavigateTo($"/edificios/{buildingId}/pisos");
+        }
+        else
+        {
+            Navigation.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/");
+        }
+    }
+
+    /// <summary>
+    /// Initializes the component by loading the building and its floors.
+    /// </summary>
+    /// <returns></returns>
+    protected override async Task OnInitializedAsync()
+    {
+        this.IsLoading = true;
+        bool buildingLoaded = false;
+        try
+        {
+            var building = await BuildingServices.DisplayBuildingAsync(this.buildingId);
+
+            if (building is null || string.IsNullOrWhiteSpace(building?.Name?.Name))
+            {
+                UserMessage = "No se encontró el edificio solicitado. Por favor, verifique la URL o contacte al administrador.";
+                UserMessageSeverity = Severity.Error;
+                this.IsBuildingValid = false;
+                return;
+            }
+
+            this.BuildingName = building.Name.Name;
+            this.IsBuildingValid = true;
+            buildingLoaded = true;
+
+            var floorList = await FloorServices.GetFloorsListAsync(this.buildingId);
+
+            if (floorList is null || !floorList.Any(f => f.FloorId == this.floorId))
+            {
+                UserMessage = "No se encontró el piso solicitado. Por favor, verifique la URL o contacte al administrador.";
+                UserMessageSeverity = Severity.Error;
+                this.IsFloorValid = false;
+                return;
+            }
+
+            this.FloorNumber = floorList.FirstOrDefault(f => f.FloorId == this.floorId)!.Number.Value;
+            this.IsFloorValid = true;
+        }
+        catch (DomainException)
+        {
+            if (!buildingLoaded)
+            {
+                this.UserMessage = "Ocurrió un error al cargar la información del edificio.";
+                this.IsBuildingValid = false;
+            }
+            else
+            {
+                this.UserMessage = "Ocurrió un error al cargar la información del piso.";
+                this.IsFloorValid = false;
+            }
+            this.UserMessageSeverity = Severity.Error;
+        }
+        finally
+        {
+            this.IsLoading = false;
+        }
+    }
+}

@@ -1,0 +1,5 @@
+﻿CREATE TABLE Guest (
+	PersonId INT NOT NULL,
+	PRIMARY KEY (PersonId),
+	FOREIGN KEY (PersonId) REFERENCES Person(Id)
+);

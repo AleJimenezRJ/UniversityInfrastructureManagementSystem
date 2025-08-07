@@ -1,0 +1,396 @@
+﻿@page "/edificios/{buildingId:int}/pisos/{floorId:int}/espacios-de-aprendizaje/{learningSpaceId:int}/listar-componentes/{ComponentId:int}"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Helpers
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Policy = "View Specific Component")]
+@* Dependency injection for required services *@
+@inject ISnackbar Snackbar
+@inject ILearningComponentServices LearningComponentService
+@inject IBuildingsServices BuildingService
+@inject ILearningSpaceServices LearningSpaceService
+@inject IFloorServices FloorService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject IPermissionContext PermissionContext
+
+
+@* Page that shows
+    - Breadcrumb navigation component
+    - Loading state while fetching data 
+    - Learning component details if found
+*@
+
+
+@if (isLoading)
+{
+    <Spinner />
+}
+else if (component is not null)
+{
+    <MudBreadcrumbs Items="_items">
+        <ItemTemplate Context="item">
+            @if (item.Disabled)
+            {
+                <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+            }
+            else
+            {
+                <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+            }
+        </ItemTemplate>
+    </MudBreadcrumbs>
+
+    <PageTitle>Información del Componente </PageTitle>
+    <h1 class="text-h1">Información del Componente</h1>
+    <div style="display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        flex-wrap: wrap;
+                        gap: 1rem;
+                        width: 100%;
+                        margin-bottom: 1rem;">
+        <MudText Typo="Typo.subtitle1" Style="color: #204c6f;">
+            <strong>Edificio:</strong> @_buildingName<br />
+            <strong>Piso:</strong> @_floorNum<br />
+            <strong>Espacio de aprendizaje:</strong> @_learningSpaceName
+        </MudText>
+    </div>
+
+
+    <MudPaper Class="pa-4 mb-4" Style="background-color: #ffffff;">
+
+        <MudGrid Spacing="2" Class="mb-4" Style="padding-left: 16px;">
+
+            <!-- ID y Tipo -->
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">ID:</MudText>
+                <MudText Class="text-body">@component.ComponentId</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Tipo:</MudText>
+                <MudText Class="text-body">@ComponentType</MudText>
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Orientación:</MudText>
+                <MudText Class="text-body">@TranslateOrientation(component.Orientation.Value)</MudText>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Posición X:</MudText>
+                <MudText Class="text-body">@component.Position.X</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Posición Y:</MudText>
+                <MudText Class="text-body">@component.Position.Y</MudText>
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Ancho:</MudText>
+                <MudText Class="text-body">@component.Dimensions.Width</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Profundidad:</MudText>
+                <MudText Class="text-body">@component.Dimensions.Length</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudText Class="fw-bold text-h3">Alto:</MudText>
+                <MudText Class="text-body">@component.Dimensions.Height</MudText>
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+            @if (component is Projector projector)
+            {
+                <MudItem xs="12" sm="4">
+                    <MudText Class="fw-bold text-h3">Largo proyectado:</MudText>
+                    <MudText Class="text-body">@projector.ProjectionArea!.Length</MudText>
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudText Class="fw-bold text-h3">Altura proyectada:</MudText>
+                    <MudText Class="text-body">@projector.ProjectionArea!.Height</MudText>
+                </MudItem>
+                <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+                <MudItem xs="12" sm="4">
+                    <div style="width: 500px;">
+                        <MudText Class="fw-bold text-h3">Contenido proyectado:</MudText>
+                        <MudText Class="text-body">@projector.ProjectedContent</MudText>
+                    </div>
+                </MudItem>
+            }
+
+            @if (component is Whiteboard whiteboard)
+            {
+                <MudItem xs="12" sm="4">
+                    <MudText Class="fw-bold text-h3">Color del marcador:</MudText>
+                    <MudText Class="text-body">
+                        <ColorBlock ColorName="@whiteboard.MarkerColor!.Value" />
+                    </MudText>
+                </MudItem>
+            }
+
+
+        </MudGrid>
+
+        <div class="button-container mt-4 mb-4 mr-6 align-self-stretch">
+            <CustomButton ButtonType="cancel" Variant="Variant.Outlined"
+                          OnClick='@(() => NavigationManager.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes"))'>
+                Atrás
+            </CustomButton>
+
+            <AuthorizeView Policy="Edit Components">
+                <Authorized>
+                <CustomButton ButtonType="add"
+                              OnClick='@(() => NavigationManager.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/actualizar-componente/{ComponentId}"))'>
+                    Editar
+                </CustomButton>
+                </Authorized>
+            </AuthorizeView>
+            
+
+            <AuthorizeView Policy="Delete Components">
+                <Authorized>
+                <CustomButton ButtonType="delete" OnClick="@OpenDeleteDialog">
+                    Eliminar
+                </CustomButton>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+
+        <ConfirmDialog @ref="deleteDialog"
+                       Title="Confirmación"
+                       Message="¿Estás seguro de que deseas eliminar el componente?"
+                       OkText="Eliminar"
+                       CancelText="Cancelar"
+                       ColorVarOk="--color-primary1" />
+    </MudPaper>
+    <div style="height: 150px;"></div>
+}
+else
+{
+    <PageTitle>Componente no encontrado</PageTitle>
+    <h3>Componente no encontrado</h3>
+    <p><em>Componente no encontrado.</em></p>
+}
+
+@* Display error message if one occurs *@
+@if (showError)
+{
+    <div class="alert alert-danger mt-4" role="alert">
+        @errorMessage
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// The name of the building where the learning space is located.
+    /// Retrieved from the BuildingService and displayed in the UI.
+    /// </summary>
+    private string? _buildingName;
+
+    /// <summary>
+    /// The floor number where the learning space is located.
+    /// Retrieved from the FloorService and displayed in the UI.
+    /// </summary>
+    private int _floorNum;
+
+    /// <summary>
+    /// The name of the learning space where components are located.
+    /// Retrieved from the LearningSpaceService and displayed in the UI.
+    /// </summary>
+    private string? _learningSpaceName;
+    /// <summary>
+    /// Dialog for confirming if a component is deleted or not.
+    /// </summary>
+    private ConfirmDialog? deleteDialog;
+    /// <summary>
+    /// The ID of the building Id from the route.
+    /// Used to retrieve components associated with that space.
+    /// </summary>
+    [Parameter] public int buildingId { get; set; }
+    /// <summary>
+    /// Learning space ID from the route.
+    /// </summary>
+    [Parameter] public int learningSpaceId { get; set; }
+
+    [Parameter] public int floorId { get; set; }
+    /// <summary>
+    /// Component ID from the route.
+    /// Used to fetch and display a specific component.
+    /// </summary>
+    [Parameter] public int ComponentId { get; set; }
+    /// <summary>
+    /// The learning component to display.
+    /// </summary>
+    private LearningComponent? component;
+    /// <summary>
+    /// Indicates if the page is currently loading data.
+    /// </summary>
+    private bool isLoading = true;
+    /// <summary>
+    /// Indicates if a delete operation is in progress.
+    /// </summary>
+    private bool isDeleting = false;
+    /// <summary>
+    /// Indicates if an error message should be shown.
+    /// </summary>
+    private bool showError = false;
+    /// <summary>
+    /// The error message to display if an error occurs.
+    /// </summary>
+    private string errorMessage = string.Empty;
+
+    /// <summary>
+    /// Gets the type of the component as a string in Spanish.
+    /// </summary>
+    private string ComponentType => component switch
+    {
+        Projector => "Proyector",
+        Whiteboard => "Pizarra",
+        _ => "Componente"
+    };
+
+    /// <summary>
+    /// Translates a color name from English to Spanish.
+    /// </summary>
+    private readonly Dictionary<string, string> OrientationTranslations = new()
+    {
+        { "North", "Norte" },
+        { "South", "Sur" },
+        { "East", "Este" },
+        { "West", "Oeste" }
+    };
+
+    private List<BreadcrumbItem> _items = new();
+
+    protected override void OnInitialized()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+            new BreadcrumbItem("Inicio", href: "/"),
+            new BreadcrumbItem("Edificios", href: "/edificios"),
+            new BreadcrumbItem("Pisos", href: $"/edificios/{buildingId}/pisos"),
+            new BreadcrumbItem("Espacios de Aprendizaje", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje"),
+            new BreadcrumbItem("Componentes", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes"),
+            new BreadcrumbItem("Detalles del Componente", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes/{ComponentId}")
+        };
+    }
+
+    /// <summary>
+    /// Used to translate orientation names from English to Spanish.
+    /// </summary>
+    /// <param name="englishOrientation">The value of the orientation in the database</param>
+    /// <returns></returns>
+    private string TranslateOrientation(string englishOrientation)
+    {
+        return OrientationTranslations.TryGetValue(englishOrientation, out var spanish) ? spanish : englishOrientation;
+    }
+
+    /// <summary>
+    /// Loads the component data when the page is initialized.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            component = await LearningComponentService.GetSingleLearningComponentByIdAsync(ComponentId);
+            var building = await BuildingService.DisplayBuildingAsync(this.buildingId);
+            var floorList = await FloorService.GetFloorsListAsync(this.buildingId);
+            var currentFloor = floorList!.FirstOrDefault(f => f.FloorId == floorId);
+            var learningSpace = await LearningSpaceService.GetLearningSpaceAsync(this.learningSpaceId);
+
+            _buildingName = building!.Name!.Name;
+            _learningSpaceName = learningSpace!.Name!.Name;
+            _floorNum = currentFloor!.Number.Value;
+        }
+        catch (Exception ex)
+        {
+            component = null;
+            showError = true;
+            errorMessage = $"Error al cargar componente: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Opens a confirmation dialog before deleting the component
+    /// </summary>
+    private async Task OpenDeleteDialog()
+    {
+        if (isDeleting || component == null)
+            return;
+
+        bool? result = await deleteDialog.ShowAsync();
+
+        if (result == true)
+        {
+            await DeleteComponent();
+        }
+    }
+
+
+    /// <summary>
+    /// Handles the deletion of the current component. Shows a loading indicator and navigates back to the list on success.
+    /// </summary>
+    private async Task DeleteComponent()
+    {
+        if (isDeleting)
+            return;
+
+        isDeleting = true;
+
+        showError = false;
+        errorMessage = string.Empty;
+        try
+        {
+            var deleted = await LearningComponentService.DeleteLearningComponentAsync(ComponentId);
+            if (deleted)
+            {
+                Snackbar.Add("Componente eliminado correctamente.", Severity.Success);
+                NavigateToListComponent();
+                isDeleting = false;
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo borrar el componente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = $"Error inesperado: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Formats the component ID with a prefix based on type.
+    /// </summary>
+    private string GetFormattedId(LearningComponent component)
+    {
+        return component switch
+        {
+            Projector p => $"PROJ-{p.ComponentId}",
+            Whiteboard w => $"WB-{w.ComponentId}",
+            _ => component.ComponentId.ToString()
+        };
+    }
+
+    private void NavigateToListComponent()
+    {
+        NavigationManager.NavigateTo($"/edificios/{@buildingId}/pisos/{@floorId}/espacios-de-aprendizaje/{@learningSpaceId}/listar-componentes");
+    }
+}

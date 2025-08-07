@@ -1,0 +1,165 @@
+@page "/sedes/agregar-sede"
+@inherits CampusComponentBase
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Models
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.Kiota.Models
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using MudSize = MudBlazor.Size
+
+@attribute [Authorize(Policy = "Create Campus")]
+@inject ICampusServices CampusRepository
+@inject NavigationManager NavigationManager
+@inject IUniversityServices UniversityRepository
+@inject ISnackbar Snackbar
+
+<Header />
+<CleanBreadcrumbs />
+
+<h3 class="text-h1 mt-4 ms-3">Agregar Sede</h3>
+
+<div style="padding-bottom: 150px;">
+    <MudPaper Class="mx-auto mt-4 px-6 py-4" Style="max-width: 1000px; border-radius: 8px;">
+
+        <MudGrid GutterSize="3" Style="max-width: 400px;">
+            <MudItem xs="12">
+                <MudText Class="text-h3 mb-2">Nombre de la sede</MudText>
+                <MudTextField @bind-Value="campusName"
+                        Placeholder="ej. Sede Rodrigo Facio"
+                        Variant="Variant.Filled"
+                        Dense="true"
+                        OnBlur="@(() => ValidateNameFormat(campusName))"
+                        Error="@(!string.IsNullOrWhiteSpace(NameError))"
+                        ErrorText="@NameError"
+                        FullWidth="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Class="text-h3 mb-2">Ubicación</MudText>
+                <MudTextField @bind-Value="location"
+                        Placeholder="ej. San Pedro"
+                        Variant="Variant.Filled"
+                        Dense="true"
+                        OnBlur="@(() => ValidateLocationFormat(location))"
+                        Error="@(!string.IsNullOrWhiteSpace(LocationError))"
+                        ErrorText="@LocationError"
+                        FullWidth="true" />
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+
+            <MudItem xs="12">
+                <MudText Class="text-h3 mb-2">Universidad</MudText>
+                <MudSelect T="string"
+                        Value="universityName"
+                        ValueChanged="OnUniversityChanged"
+                        Placeholder="Seleccione una universidad" 
+                        Variant="Variant.Filled" 
+                        Dense="true"
+                        Error="@(!string.IsNullOrWhiteSpace(UniversityNameError))"
+                        ErrorText="@UniversityNameError"
+                        FullWidth="true">
+                    @if (Universities != null)
+                    {
+                        @foreach (var university in Universities)
+                        {
+                            <MudSelectItem Value="@university.Name.Name">@university.Name.Name</MudSelectItem>
+                        }
+                    }
+                        
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        @if (showError)
+        {
+            <MudAlert Severity="Severity.Error" Class="my-2">
+                @errorMessage
+            </MudAlert>
+        }
+
+        <div class="d-flex justify-content-end align-items-center mt-4">
+            <div class="d-flex gap-2">
+                <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@(() => NavigationManager.NavigateTo("/sedes"))">
+                    CANCELAR
+                </CustomButton>
+
+                <CustomButton ButtonType="add" Variant="Variant.Filled" OnClick="SubmitCampus">
+                    GUARDAR
+                </CustomButton>
+            </div>
+        </div>
+    </MudPaper>
+</div>
+
+@code {
+    private string? campusName;
+    private string? location;
+    private string? universityName;
+    private bool added;
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+    private IEnumerable<University>? Universities;
+
+    protected override async Task OnInitializedAsync()
+    {
+            Universities = await UniversityRepository.ListUniversityAsync();
+        
+    }
+
+    private async Task OnUniversityChanged(string selectedUniversity)
+    {
+        universityName = selectedUniversity;
+        ValidateUniversityNameFormat(universityName);
+    }
+
+    private async Task SubmitCampus()
+    {
+        try
+        {
+            // Trigger all field validations
+            ValidateNameFormat(campusName);
+            ValidateLocationFormat(location);
+            ValidateUniversityNameFormat(universityName);
+
+            if (HasValidationErrors())
+            {
+                showError = true;
+                errorMessage = "Por favor corrija los errores en el formulario.";
+                return;
+            }
+
+            // Clean previous errors
+            showError = false;
+
+            var newCampus = new Campus(new EntityName(campusName!), new EntityLocation(location!), new EntityName(universityName!));
+            added = await CampusRepository.AddCampusAsync(newCampus);
+
+            if (added)
+            {
+                Snackbar.Add("Sede agregada exitosamente", Severity.Success);
+                NavigationManager.NavigateTo("/sedes");
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo agregar la sede. Por favor intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = $"Ocurrió un error inesperado: {ex.Message}";
+        }
+
+
+    }
+
+    
+}

@@ -1,0 +1,41 @@
+﻿@using MudBlazor
+
+<MudButton Variant="@Variant" OnClick="@OnClick" Class="@GetClass()" Style="@GetStyle()">
+    @ChildContent
+</MudButton>
+
+@code {
+    [Parameter]
+    public string ButtonType { get; set; } = "default";
+
+    [Parameter]
+    public Variant Variant { get; set; } = Variant.Filled;
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; } = null!;
+
+    private string GetClass()
+    {
+        return ButtonType switch
+        {
+            "cancel" => "custom-button-cancel",
+            "add" => "custom-button-add",
+            "delete" => "custom-button-delete",
+            _ => ""
+        };
+    }
+
+    private string GetStyle()
+    {
+        return ButtonType switch
+        {
+            "cancel" => "color: #204C6F; border: 1px solid #204C6F;",
+            "delete" => "background-color: var(--color-secondary12); color: var(--color-primary2);",
+            "add" => "background-color: var(--color-primary3); color: var(--color-primary2);",
+            _ => ""
+        };
+    }
+}

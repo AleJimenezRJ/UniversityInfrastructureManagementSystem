@@ -1,0 +1,20 @@
+﻿@using MudBlazor
+
+@if (ImagePaths != null && ImagePaths.Any())
+{
+    <MudCarousel Class="mud-width-full" Style="height:500px;" ShowArrows="true" ShowBullets="true" EnableSwipeGesture="true" AutoCycle="true" TData="object">
+        @foreach (var imagePath in ImagePaths)
+        {
+            <MudCarouselItem>
+                <div class="d-flex justify-content-center align-items-center" style="height:100%;">
+                    <img src="@imagePath" style="height: 100%; width: 100%; object-fit: cover; object-position: 50% 30%;" />
+                </div>
+            </MudCarouselItem>
+        }
+    </MudCarousel>
+}
+
+@code {
+    [Parameter]
+    public List<string> ImagePaths { get; set; } = new List<string>();
+}

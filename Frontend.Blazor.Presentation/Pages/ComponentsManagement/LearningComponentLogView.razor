@@ -1,0 +1,309 @@
+﻿@page "/edificios/{buildingId:int}/pisos/{floorId:int}/espacios-de-aprendizaje/{learningSpaceId:int}/learning-component-audit"
+
+@using Microsoft.AspNetCore.Authorization
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services.Implementations
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement
+
+@attribute [Authorize(Policy = "View Audit")]
+
+@inject ILearningComponentAuditServices LearningComponentAuditService
+@inject ILearningComponentServices LearningComponentService
+@inject IBuildingsServices BuildingService
+@inject ILearningSpaceServices LearningSpaceService
+@inject IFloorServices FloorService
+@inject NavigationManager NavManager
+@inject IPermissionContext PermissionContext
+
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+    <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+        <MudBreadcrumbs Items="_items">
+            <ItemTemplate Context="item">
+                @if (item.Disabled)
+                {
+                    <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+                }
+                else
+                {
+                    <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+                }
+            </ItemTemplate>
+        </MudBreadcrumbs>
+
+        <h1 class="text-h1">Historial de Auditoría de Componentes de Aprendizaje</h1>
+
+        <div style="display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                    width: 100%;
+                    margin-bottom: 1rem;">
+            <MudText Typo="Typo.subtitle1" Style="color: #204c6f;">
+                <strong>Edificio:</strong> @_buildingName<br />
+                <strong>Piso:</strong> @_floorNum<br />
+                <strong>Espacio de aprendizaje:</strong> @_learningSpaceName
+            </MudText>
+        </div>
+
+        @if (!_initialLoadComplete)
+        {
+            <Spinner />
+        }
+        else
+        {
+            <div class="table-container" style="overflow-x: auto; width: 100%;">
+                <MudTable ServerData="LoadAudits"
+                Elevation="1"
+                RowsPerPage="10"
+                Hover="true"
+                Bordered="true"
+                Striped="true"
+                Style="min-width: 650px; white-space: nowrap; table-layout: fixed;"
+                FixedHeader="true"
+                Dense="true"
+                CustomHeader="true"
+                Breakpoint="Breakpoint.None"
+                HeaderClass="mud-table-sticky-header">
+                    <HeaderContent>
+                        <MudTh class="no-wrap"><span class="text-h3">ID</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Posición</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Dimensiones</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Orientación</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Detalles</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Fecha</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Acción</span></MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate Context="context">
+                        <MudTd Class="no-wrap text-body" DataLabel="ID" Style="width: 30%; min-width: 150px;">
+                            <div Style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">
+                                @GetFormattedId(context)
+                            </div>
+                        </MudTd>
+
+                        <MudTd  Class="no-wrap text-body" DataLabel="Posición" Style="width: 30%; min-width: 150px;">
+                            <div Style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">
+                                @($"X: {context.X:F2}\t Y: {context.Y:F2}\t Z: {context.Z:F2}")
+                            </div>
+                        </MudTd>
+                        <MudTd  Class="no-wrap text-body" DataLabel="Dimensiones" Style="width: 35%; min-width: 180px;">
+                            <div Style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">
+                                @($"W: {context.Width:F2}\t L: {context.Depth:F2}\t H: {context.Height:F2}")
+                            </div>
+                        </MudTd>
+
+                        <MudTd Class="no-wrap text-body" DataLabel="Orientación" Style="width: 20%; min-width: 120px;">
+                            <div Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @TranslateOrientation(context.Orientation!)
+                            </div>
+                        </MudTd>
+
+                        <MudTd class="text-body no-wrap">
+                            @if (context.ComponentType == "Whiteboard")
+                            {
+                                <span>Color Marcador: @context.MarkerColor</span>
+                            }
+                            else if (context.ComponentType == "Projector")
+                            {
+                                <div>Contenido Proyectado: @context.ProjectedContent</div>
+                                <div>Dimensiones Proyección: @context.ProjectedHeight × @context.ProjectedWidth</div>
+                            }
+                            else
+                            {
+                                <span>-</span>
+                            }
+                        </MudTd>
+                        <MudTd class="text-body no-wrap">@context.ModifiedAt.ToString("dd/MM/yyyy HH:mm")</MudTd>
+                        <MudTd class="text-body no-wrap">@context.Action</MudTd>
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudText Class="text-h3">No hay elementos para mostrar.</MudText>
+                    </NoRecordsContent>
+
+                    <PagerContent>
+                        <TablePager />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+            <div class="d-flex justify-content-start mt-3 ms-1">
+                <CustomButton ButtonType="cancel"
+                Variant="Variant.Outlined"
+                OnClick="NavigateToComponentManagement">
+                    ATRÁS
+                </CustomButton>
+            </div>
+        }
+    </div>
+</MudContainer>
+
+@code {
+    private bool _initialLoadComplete;
+    /// <summary>
+    /// The name of the building where the learning space is located.
+    /// Retrieved from the BuildingService and displayed in the UI.
+    /// </summary>
+    private string? _buildingName;
+
+    /// <summary>
+    /// The floor number where the learning space is located.
+    /// Retrieved from the FloorService and displayed in the UI.
+    /// </summary>
+    private int _floorNum;
+
+    /// <summary>
+    /// The ID of the building Id from the route.
+    /// Used to retrieve components associated with that space.
+    /// </summary>
+    [Parameter] public int buildingId { get; set; }
+    /// <summary>
+    /// The ID of the learning space from the route.
+    /// Used to retrieve components associated with that space.
+    /// </summary>
+    [Parameter] public int learningSpaceId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the ID of the floor where the learning space is located.
+    /// </summary>
+    [Parameter] public int floorId { get; set; }
+
+    /// <summary>
+    /// The number of items displayed per page in the table.
+    /// </summary>
+    private int _pageSize;
+
+    /// <summary>
+    /// The current page index (zero-based) being displayed in the table.
+    /// </summary>
+    private int _pageIndex;
+
+    /// <summary>
+    /// The total number of items across all pages in the table.
+    /// </summary>
+    private int _totalItems;
+
+    /// <summary>
+    /// The name of the learning space where components are located.
+    /// Retrieved from the LearningSpaceService and displayed in the UI.
+    /// </summary>
+    private string? _learningSpaceName;
+
+    /// <summary>
+    /// Flag indicating whether the table has completed its initial render.
+    /// Used to control the display of the loading indicator.
+    /// </summary>
+    private bool _tableHasRendered;
+
+
+    /// <summary>
+    /// Collection of learning components displayed in the table.
+    /// </summary>
+    private PaginatedList<LearningComponent>? _data;
+
+    private List<BreadcrumbItem> _items = new();
+
+    protected override void OnInitialized()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+         new BreadcrumbItem("Inicio", href: "/"),
+        new BreadcrumbItem("Edificios", href: "/edificios"),
+        new BreadcrumbItem("Pisos", href: $"/edificios/{buildingId}/pisos"),
+        new BreadcrumbItem("Espacios de Aprendizaje", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje"),
+        new BreadcrumbItem("Componentes", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes"),
+        new BreadcrumbItem("Historial de Auditoría de Componentes", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/learning-component-audit")
+        };
+    }
+
+    /// <summary>
+    /// Called when the component is initialized.
+    /// Fetches all learning components for the given learning space ID.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var building = await BuildingService.DisplayBuildingAsync(this.buildingId);
+        var floorList = await FloorService.GetFloorsListAsync(this.buildingId);
+        var currentFloor = floorList!.FirstOrDefault(f => f.FloorId == floorId);
+        var learningSpace = await LearningSpaceService.GetLearningSpaceAsync(this.learningSpaceId);
+
+        _buildingName = building!.Name!.Name;
+        _learningSpaceName = learningSpace!.Name!.Name;
+        _floorNum = currentFloor!.Number.Value;
+
+        _tableHasRendered = true;
+
+        var dummyState = new TableState { Page = 0, PageSize = 10 };
+        await LoadAudits(dummyState, new CancellationToken());
+
+        _initialLoadComplete = true;
+    }
+
+    private async Task<TableData<LearningComponentAudit>> LoadAudits(TableState state, CancellationToken cancellationToken)
+    {
+        try
+        {
+            int pageNumber = state.Page;
+            int pageSize = state.PageSize;
+
+            var paginated = await LearningComponentAuditService.GetPaginatedLearningComponentAuditAsync(pageSize, pageNumber);
+
+            return new TableData<LearningComponentAudit>
+            {
+                Items = paginated.ToList(),
+                TotalItems = paginated.TotalCount
+            };
+        }
+        catch (Exception)
+        {
+            return new TableData<LearningComponentAudit>
+            {
+                Items = new List<LearningComponentAudit>(),
+                TotalItems = 0
+            };
+        }
+    }
+
+    /// <summary>
+    /// Formats the component ID with a prefix based on type.
+    /// </summary>
+    private string GetFormattedId(LearningComponentAudit audit)
+    {
+        return audit.ComponentType switch
+        {
+            "Projector" => $"PROJ-{audit.ComponentId}",
+            "Whiteboard" => $"WB-{audit.ComponentId}",
+            _ => audit.ComponentId.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Dictionary used to translate orientation values from English to Spanish.
+    /// </summary>
+    private readonly Dictionary<string, string> OrientationTranslations = new()
+    {
+        { "North", "Norte" },
+        { "South", "Sur" },
+        { "East", "Este" },
+        { "West", "Oeste" }
+    };
+
+    /// <summary>
+    /// Translates the orientation string from English to Spanish.
+    /// </summary>
+    /// <param name="englishOrientation">Orientation in English (e.g., "North").</param>
+    /// <returns>The corresponding Spanish translation, or the original if not found.</returns>
+    private string TranslateOrientation(string englishOrientation)
+    {
+        return OrientationTranslations.TryGetValue(englishOrientation, out var spanish) ? spanish : englishOrientation;
+    }
+
+    private void NavigateToComponentManagement()
+    {
+        NavManager.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes");
+    }
+}

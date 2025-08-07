@@ -1,0 +1,146 @@
+@page "/universidades/mostrar-universidad/{UniversityName}"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Policy = "View Specific University")]
+@inject IUniversityServices UniversityServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IPermissionContext PermissionContext
+
+<CleanBreadcrumbs EntityName="@UniversityName"/>
+<PageTitle>Universidad @university?.Name!.Name</PageTitle>
+
+<h3 class="text-h1 mt-4 ms-3">Información de Universidad</h3>
+
+@if (isLoading)
+{
+    <Spinner />
+}
+else if (university is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.False">
+        <MudPaper Class="px-6 py-4" Elevation="1" Style="max-width: 1000px; margin: auto; border-radius: 8px;">
+            <MudGrid Spacing="2" Class="mb-4" Style="padding-left: 16px; padding-right: 16px;">
+                <TitleLabel Label="Nombre" />
+                <ValueLabel Value="@university.Name!.Name" />
+
+                <TitleLabel Label="País" />
+                <ValueLabel Value="@university.Country!.Location" />
+            </MudGrid>
+
+
+            <div class="button-container mt-4">
+                <CustomButton ButtonType="cancel"
+                              Variant="Variant.Outlined"
+                              OnClick="@(() => NavigationManager.NavigateTo("/universidades"))">
+                    ATRÁS
+                </CustomButton>
+
+                <AuthorizeView Policy="Delete Universities">
+                    <Authorized>
+                        <CustomButton ButtonType="delete"
+                                      Variant="Variant.Filled"
+                                      OnClick="@OnDeleteClicked">
+                            BORRAR
+                        </CustomButton>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+
+        </MudPaper>
+    </MudContainer>
+
+    <ConfirmDialog @ref="DeleteDialog"
+                   Title="Confirmación"
+                   Message="¿Estás seguro de que deseas eliminar esta universidad?"
+                   OkText="Eliminar"
+                   CancelText="Cancelar"
+                   ColorVarOk="--color-primary1" />
+
+    
+}
+else
+{
+    <p><em>Universidad no encontrada.</em></p>
+}
+
+@if (showError)
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public string UniversityName { get; set; } = string.Empty;
+
+    private University? university;
+    private bool isLoading = true;
+    private ConfirmDialog? DeleteDialog;
+
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            university = await UniversityServices.GetByNameAsync(UniversityName);
+        }
+        catch
+        {
+            university = null;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnDeleteClicked()
+    {
+        showError = false;
+        errorMessage = string.Empty;
+
+        bool confirmed = await DeleteDialog!.ShowAsync();
+
+        if (!confirmed)
+            return;
+
+        await DeleteUniversity();
+    }
+
+    private async Task DeleteUniversity()
+    {
+        showError = false;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var deleted = await UniversityServices.DeleteUniversityAsync(UniversityName);
+
+            if (deleted)
+            {
+                Snackbar.Add("Universidad eliminada exitosamente.", Severity.Success);
+                NavigationManager.NavigateTo("/universidades");
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo eliminar la universidad. Por favor, intenta de nuevo.";
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = $"Ocurrió un error inesperado: {ex.Message}";
+        }
+    }
+}

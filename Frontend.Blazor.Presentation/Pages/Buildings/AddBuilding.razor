@@ -1,0 +1,325 @@
+﻿@page "/edificios/agregar-edificio"
+@inherits BuildingComponentBase
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Exceptions
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+
+@attribute [Authorize(Policy = "Create Buildings")]
+@inject IBuildingsServices BuildingsRepository
+@inject IAreaServices AreaRepository
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<Header />
+<CleanBreadcrumbs isBuildingBreadcrumb="true"/>
+
+<h3 class="text-h1 mt-4 ms-3">Agregar Edificio</h3>
+
+<div style="min-height: 100vh; display: flex; flex-direction: column;">
+    <main style="flex: 1; padding-bottom: 80px;">
+        <MudContainer Class="mt-4 d-flex justify-center">
+            <MudPaper Class="pa-8" Elevation="2" Style="background: #f8f9fa; max-width: 600px; width: 100%;">
+                <MudGrid GutterSize="3">
+                    <MudItem xs="6">
+                        <MudText Class="text-h3 mb-2">Nombre del edificio</MudText>
+                        <MudTextField @bind-Value="buildingName"
+                                      Placeholder="ej. Edificio Ciencias"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      OnBlur="@(() => ValidateNameFormat(buildingName))"
+                                      Error="@(!string.IsNullOrWhiteSpace(NameError))"
+                                      ErrorText="@NameError"
+                                      FullWidth="true" />
+                    </MudItem>
+
+                    <MudItem xs="6">
+                        <MudText Class="text-h3 mb-2">Área del edificio</MudText>
+                        <MudSelect T="string"
+                                   Value="area"
+                                   ValueChanged="OnAreaChanged"
+                                   Placeholder="ej. Agronomy"
+                                   Variant="Variant.Filled"
+                                   Dense="true"
+                                   FullWidth="true"
+                                   Error="@(!string.IsNullOrWhiteSpace(AreaError))"
+                                   ErrorText="@AreaError">
+                            @if (areas != null)
+                            {
+                                @foreach (var a in areas)
+                                {
+                                    <MudSelectItem Value="@a.Name.Name">@a.Name.Name</MudSelectItem>
+                                }
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+
+                    <MudItem xs="4">
+                        <MudText Class="text-h3 mb-2">Ancho (m)</MudText>
+                        <MudTextField @bind-Value="width"
+                                      Placeholder="ej. 20"
+                                      For="@(() => width)"
+                                      Error="@(!string.IsNullOrWhiteSpace(WidthError))"
+                                      ErrorText="@WidthError"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      InputType="InputType.Number"
+                                      OnBlur="@(() => ValidateWidth(width))" />
+                    </MudItem>
+
+                    <MudItem xs="4">
+                        <MudText Class="text-h3 mb-2">Alto (m)</MudText>
+                        <MudTextField @bind-Value="height"
+                                      For="@(() => height)"
+                                      Placeholder="ej. 30"
+                                      Error="@(!string.IsNullOrWhiteSpace(HeightError))"
+                                      ErrorText="@HeightError"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      InputType="InputType.Number"
+                                      OnBlur="@(() => ValidateHeight(height))" />
+                    </MudItem>
+
+                    <MudItem xs="4">
+                        <MudText Class="text-h3 mb-2">Largo (m)</MudText>
+                        <MudTextField @bind-Value="length"
+                                      For="@(() => length)"
+                                      Placeholder="ej. 20"
+                                      Error="@(!string.IsNullOrWhiteSpace(LengthError))"
+                                      ErrorText="@LengthError"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      InputType="InputType.Number"
+                                      OnBlur="@(() => ValidateLength(length))" />
+                    </MudItem>
+
+                    <MudItem xs="4">
+                        <MudText Class="text-h3 mb-2">Color del edificio</MudText>
+                        <ColorPicker Value="@selectedColor"
+                                     ValueChanged="@(v => selectedColor = v)"
+                                     ErrorText="@ColorError" 
+                                     />
+                    </MudItem>
+
+                    <MudItem xs="4">
+                        <MudText Class="text-h3 mb-2">Coordenada X</MudText>
+                        <MudTextField T="double"
+									  Class="text-body"
+                                      Value="coordinateX"
+                                      ValueChanged="OnCoordinateXChanged"
+                                      Immediate="true"
+                                      InputType="InputType.Number"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      FullWidth="true"
+                                      Error="@(!string.IsNullOrWhiteSpace(CoordinateXError))"
+                                      ErrorText="@CoordinateXError"
+                                      OnBlur="@(() => ValidateCoordinateX(coordinateX))" />
+                    </MudItem>
+
+                    <MudItem xs="4">
+                        <MudText Class="text-h3 mb-2">Coordenada Y</MudText>
+                        <MudTextField T="double"
+									  Class="text-body"
+                                      Value="coordinateY"
+                                      ValueChanged="OnCoordinateYChanged"
+                                      Immediate="true"
+                                      InputType="InputType.Number"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      FullWidth="true"
+                                      Error="@(!string.IsNullOrWhiteSpace(CoordinateYError))"
+                                      ErrorText="@CoordinateYError"
+                                      OnBlur="@(() => ValidateCoordinateY(coordinateY))" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudPaper Class="pa-4 my-6" Style="background: #e9ecef; min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px;">
+                    <MudText Typo="Typo.h6" Class="mb-4" Style="color: #6c757d;">
+                        Selección en mapa
+                    </MudText>
+                    <canvas id="mapCanvas"
+                            width="400"
+                            height="200"
+                            style="border: 2px solid #dee2e6; background: white; cursor: pointer; border-radius: 4px;">
+                    </canvas>
+                    <MudText Typo="Typo.caption" Class="mt-2" Style="color: #6c757d;">
+                        Haz clic en el mapa para seleccionar la posición del edificio
+                    </MudText>
+                </MudPaper>
+
+                @if (showError)
+                {
+                    <MudAlert Severity="Severity.Error" Class="my-2">
+                        @errorMessage
+                    </MudAlert>
+                }
+
+                <div class="d-flex justify-content-end align-items-center mt-4">
+                    <div class="d-flex gap-2">
+                        <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@(() => NavigationManager.NavigateTo("/edificios"))">
+                            CANCELAR
+                        </CustomButton>
+
+                        <CustomButton ButtonType="add" Variant="Variant.Filled" OnClick="SubmitBuilding">
+                            GUARDAR
+                        </CustomButton>
+                    </div>
+                </div>
+            </MudPaper>
+        </MudContainer>
+    </main>
+</div>
+
+@code {
+    private string? buildingName;
+    private string? selectedColor = "";
+    private string? area;
+    private double? length;
+    private double? width;
+    private double? height;
+    private double coordinateX;
+    private double coordinateY;
+    private bool added;
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+    private IEnumerable<Area>? areas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        areas = await AreaRepository.ListAreaAsync();
+    }
+
+    private async Task SubmitBuilding()
+    {
+        try
+        {
+            // Execute all the validations
+            ValidateNameFormat(buildingName);
+            ValidateColorFormat(selectedColor);
+            ValidateAreaFormat(area);
+            ValidateWidth(width);
+            ValidateLength(length);
+            ValidateHeight(height);
+            ValidateCoordinateX(coordinateX);
+            ValidateCoordinateY(coordinateY);
+
+            // If there is any error msg, show the error msg
+            if (HasValidationErrors())
+            {
+                showError = true;
+                Snackbar.Add("Por favor corrige los errores antes de guardar.", Severity.Error);
+                errorMessage = "Por favor corrija los errores en el formulario.";
+                return;
+            }
+
+            // Clean previous errors
+            showError = false;
+
+            // Extra validation for null values
+            if (!width.HasValue || !length.HasValue || !height.HasValue)
+            {
+                showError = true;
+                errorMessage = "Error interno: valores de dimensiones no válidos.";
+                return;
+            }
+
+            // Convertir color al inglés
+            if (!Domain.ValueObjects.UniversityManagement.Colors.TryCreate(selectedColor, out _))
+            {
+                showError = true;
+                errorMessage = "Color seleccionado no válido.";
+                return;
+            }
+            
+            string? colorInEnglish = Helpers.ColorTranslator.Translate(selectedColor!, "english");
+
+            // Create Building
+            var newBuilding = new Building(
+                new EntityName(buildingName!),
+                new Coordinates(coordinateX, coordinateY, 0),
+                new Dimension(width.Value, length.Value, height.Value),
+                new Domain.ValueObjects.UniversityManagement.Colors(colorInEnglish),
+                new EntityName(area!)
+            );
+
+            // Try to add Building
+            added = await BuildingsRepository.AddBuildingAsync(newBuilding);
+
+			// Snackbar feedback
+            if (added)
+            {
+                Snackbar.Add("Edificio agregado exitosamente", Severity.Success);
+                NavigationManager.NavigateTo("/edificios");
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo agregar el edificio. Por favor intente nuevamente.";
+            }
+        }
+        catch (DuplicatedEntityException ex)
+        {
+            showError = true;
+            errorMessage = $"Edificio duplicado: {ex.Message}";
+        }
+        catch (ArgumentException ex)
+        {
+            showError = true;
+            errorMessage = $"Datos inválidos: {ex.Message}";
+        }
+        catch (InvalidOperationException ex)
+        {
+            showError = true;
+            errorMessage = $"Operación no válida: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = $"Ocurrió un error inesperado {ex.Message}";
+        }
+    }
+
+    // Map Logic
+    [JSInvokable]
+    public async Task UpdateCoordinatesFromMap(double x, double y)
+    {
+        coordinateX = x;
+        coordinateY = y;
+        StateHasChanged();
+    }
+
+    private async Task OnCoordinateXChanged(double value)
+    {
+        coordinateX = value;
+        await JS.InvokeVoidAsync("buildingMap.setPoint", coordinateX, coordinateY);
+    }
+
+    private async Task OnCoordinateYChanged(double value)
+    {
+        coordinateY = value;
+        await JS.InvokeVoidAsync("buildingMap.setPoint", coordinateX, coordinateY);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("buildingMap.init", DotNetObjectReference.Create(this));
+            await JS.InvokeVoidAsync("buildingMap.setPoint", coordinateX, coordinateY);
+        }
+    }
+
+    private async Task OnAreaChanged(string value)
+    {
+        area = value;
+        ValidateAreaFormat(area);
+    }
+}

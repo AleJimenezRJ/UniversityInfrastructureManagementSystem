@@ -1,0 +1,89 @@
+﻿@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Models
+@using Microsoft.AspNetCore.Components
+@using System.Reflection
+
+<MudTable Items="@Elements"
+          FixedHeader="true"
+          FixedFooter="true"
+          Height="@(fixed_header || fixed_footer ? "400px" : "")"
+          RowsPerPage="@RowsPerPage"
+          RowsPerPageOptions="@RowsPerPageOptions">
+    <HeaderContent>
+        @foreach (var col in columnNames)
+        {
+            <MudTh>@col</MudTh>
+        }
+    </HeaderContent>
+    <RowTemplate Context="context">
+        @foreach (var col in columnNames)
+        {
+            <MudTd DataLabel="@col">
+                @{
+                    var prop = GetCachedPropertyInfo(context, col);
+                    if (prop != null)
+                    {
+                        var value = prop.GetValue(context)?.ToString();
+
+                        if (!string.IsNullOrEmpty(value) && LinkColumns.Contains(col, StringComparer.OrdinalIgnoreCase) && LinkBuilder != null)
+                        {
+                            var url = LinkBuilder(context, col);
+                            <MudLink Href="@url">@value</MudLink>
+                        }
+                        else
+                        {
+                            @value
+                        }
+                    }
+                }
+            </MudTd>
+        }
+    </RowTemplate>
+    <FooterContent>
+        <MudTd ColSpan="@columnNames.Count">
+            <b>Total elementos: @Elements.Count()</b>
+        </MudTd>
+    </FooterContent>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+@code {
+    [Parameter]
+    public IEnumerable<Element> Elements { get; set; } = Enumerable.Empty<Element>();
+
+    [Parameter]
+    public List<string> columnNames { get; set; }
+
+    [Parameter]
+    public List<string> LinkColumns { get; set; } = new();
+
+    [Parameter]
+    public Func<object, string, string>? LinkBuilder { get; set; }
+
+    [Parameter]
+    public int RowsPerPage { get; set; } = 10;
+
+    [Parameter]
+    public int[] RowsPerPageOptions { get; set; } = new[] { 5, 10, 20, 50, 100 };
+
+
+    bool fixed_header = true;
+    bool fixed_footer = false;
+
+    private static readonly Dictionary<(Type, string), PropertyInfo?> PropertyCache = new();
+
+    private PropertyInfo? GetCachedPropertyInfo(object obj, string propertyName)
+    {
+        var key = (obj.GetType(), propertyName.ToLowerInvariant());
+
+        if (PropertyCache.TryGetValue(key, out var cachedProp))
+        {
+            return cachedProp;
+        }
+
+        var prop = obj.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        PropertyCache[key] = prop;
+        return prop;
+    }
+}

@@ -1,0 +1,163 @@
+﻿@page "/historial-edificios"
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+
+@*
+    BuildingLog.razor
+    -----------------
+    This Blazor page displays the history of building logs, showing details such as building name, coordinates,
+    dimensions, color, area, action taken, and modification date.
+    It uses MudBlazor components for UI layout and styling.
+*@
+@attribute [Authorize(Policy = "View Audit")]
+@inject IBuildingLogServices BuildingLogServices
+@inject NavigationManager NavigationManager
+@inject IPermissionContext PermissionContext
+
+<CleanBreadcrumbs isBuildingBreadcrumb="true" />
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+    <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+   
+
+        <h1 class="text-h1">
+            <h3 class="text-h1">Historial de Edificios</h3>
+        </h1>
+
+        @if (buildingLogs == null)
+        {
+            <Spinner />
+        }
+        else if (!buildingLogs.Any())
+        {
+            <MudText Class="text-h3">No se encontraron registros de edificios.</MudText>
+        }
+        else
+        {
+            <div class="table-container" style="overflow-x: auto; width: 100%;">
+                <MudTable Items="@buildingLogs"
+                          Dense="true"
+                          Bordered="true"
+                          Hover="true"
+                          Elevation="1"
+                          Striped="true"
+                          FixedHeader="true"
+                          Breakpoint="Breakpoint.None"
+                          Style="min-width: 750px; white-space: nowrap; table-layout: fixed;"
+                          Class="mt-4">
+
+                    <HeaderContent>
+                        <MudTh class="no-wrap"><span class="text-h3">Edificio</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Coordenadas</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Dimensiones</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Color</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Área</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Acción</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Modificación</span></MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate Context="log">
+                        <MudTd class="text-body no-wrap">@log.Name</MudTd>
+                        <MudTd class="text-body no-wrap">@($"{log.X}, {log.Y}, {log.Z}")</MudTd>
+                        <MudTd class="text-body no-wrap">@($"{log.Width}x{log.Length}x{log.Height}")</MudTd>
+                        <MudTd class="text-body no-wrap">@TranslateColor(log.Color)</MudTd>
+                        <MudTd class="text-body no-wrap">@log.AreaName</MudTd>
+                        <MudTd class="text-body no-wrap">@TranslateAction(log.Action)</MudTd>
+                        <MudTd class="text-body no-wrap">@log.ModifiedAt?.ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </div>
+
+            <div class="d-flex justify-content-start mt-3 ms-1">
+                <CustomButton ButtonType="cancel"
+                              Variant="Variant.Outlined"
+                              OnClick="NavigateToBuildings">
+                    ATRÁS
+                </CustomButton>
+            </div>
+        }
+    </div>
+</MudContainer>
+
+@code {
+
+    /// <summary>
+    /// Represents the list of building logs to be displayed on the page.
+    /// </summary>
+    private List<UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement.BuildingLog>? buildingLogs;
+
+    /// <summary>
+    /// Called when the component is initialized.
+    /// </summary>
+    /// <returns></returns>
+    protected override async Task OnInitializedAsync()
+    {
+        buildingLogs = await BuildingLogServices.ListBuildingLogsAsync();
+    }
+
+    private void NavigateToBuildings()
+    {
+        NavigationManager.NavigateTo("/edificios");
+    }
+
+    /// <summary>
+    /// Translate the action string to its Spanish equivalent.
+    /// </summary>
+    /// <param name="action">The action received from the database</param>
+    /// <returns></returns>
+    private static string TranslateAction(string? action) => action switch
+    {
+        "CREATED" => "CREADO",
+        "UPDATED" => "ACTUALIZADO",
+        "DELETED" => "ELIMINADO",
+        _ => action ?? "DESCONOCIDO"
+    };
+
+    /// <summary>
+    /// Translate the color string to its Spanish equivalent.
+    /// </summary>
+    /// <param name="color">The color</param>
+    /// <returns></returns>
+    private static string TranslateColor(string? color) => color?.ToLowerInvariant() switch
+    {
+        "red" => "Rojo",
+        "green" => "Verde",
+        "blue" => "Azul",
+        "yellow" => "Amarillo",
+        "black" => "Negro",
+        "white" => "Blanco",
+        "orange" => "Anaranjado",
+        "purple" => "Púrpura",
+        "gray" => "Gris",
+        "brown" => "Marrón",
+        "pink" => "Rosado",
+        "cyan" => "Cian",
+        "magenta" => "Magenta",
+        "lime" => "Lima",
+        "teal" => "Verde azulado",
+        "olive" => "Oliva",
+        "navy" => "Azul marino",
+        "maroon" => "Burdeos",
+        "silver" => "Plateado",
+        "gold" => "Dorado",
+        "darkred" => "Rojo oscuro",
+        "crimson" => "Carmesí",
+        "salmon" => "Salmón",
+        "darkorange" => "Naranja oscuro",
+        "peach" => "Durazno",
+        "darkgreen" => "Verde oscuro",
+        "emerald" => "Esmeralda",
+        "aqua" => "Aguamarina",
+        "turquoise" => "Turquesa",
+        "mint" => "Menta",
+        "darkblue" => "Azul oscuro",
+        "steelblue" => "Azul acero",
+        "skyblue" => "Celeste",
+        "indigo" => "Índigo",
+        "violet" => "Violeta",
+        _ => color ?? "Desconocido"
+    };
+}

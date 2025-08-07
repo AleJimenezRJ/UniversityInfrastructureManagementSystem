@@ -1,0 +1,156 @@
+@page "/areas/agregar-area"
+@inherits AreaComponentBase
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Models
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.Kiota.Models
+@using Microsoft.AspNetCore.Authorization
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Pages.Universities
+@using MudBlazor
+@using MudSize = MudBlazor.Size
+
+@attribute [Authorize(Policy = "Create Area")]
+@inject IAreaServices AreaRepository
+@inject ICampusServices CampusRepository
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<CleanBreadcrumbs />
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+    <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+        <PageTitle>Agregar Área</PageTitle>
+
+        <h3 class="text-h1" style="margin-bottom: 1rem;">Agregar Área</h3>
+
+        <MudPaper Class="px-6 py-4" Style="max-width: 600px; margin: 0 auto; border-radius: 8px;">
+            <MudGrid GutterSize="3">
+                <MudItem xs="12">
+                    <MudText Class="text-h3 mb-2">Nombre del área</MudText>
+                    <MudTextField @bind-Value="areaName"
+                                  Placeholder="ej. Ciencias Básicas"
+                                  Variant="Variant.Filled"
+                                  Dense="true"
+                                  OnBlur="@(() => ValidateNameFormat(areaName))"
+                                  Error="@(!string.IsNullOrWhiteSpace(NameError))"
+                                  ErrorText="@NameError"
+                                  Style="max-width: 300px;" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Class="text-h3 mb-2">Sede</MudText>
+                    <MudSelect T="string"
+                               Value="campus"
+                               ValueChanged="OnCampusChanged"
+                               Placeholder="Seleccione una sede"
+                               Variant="Variant.Filled"
+                               Dense="true"
+                               Style="max-width: 300px;"
+                               Error="@(!string.IsNullOrWhiteSpace(CampusNameError))"
+                               ErrorText="@CampusNameError">
+                        @if (campuss != null)
+                        {
+                            @foreach (var c in campuss)
+                            {
+                                <MudSelectItem Value="@c.Name!.Name">@c.Name.Name</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            @if (showError)
+            {
+                <MudAlert Severity="Severity.Error" Class="my-2">
+                    @errorMessage
+                </MudAlert>
+            }
+
+            <div class="d-flex justify-content-end align-items-center mt-4">
+                <div class="d-flex gap-2">
+                    <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@(() => NavigationManager.NavigateTo("/areas"))">
+                        CANCELAR
+                    </CustomButton>
+
+                    <CustomButton ButtonType="add" Variant="Variant.Filled" OnClick="SubmitArea">
+                        GUARDAR
+                    </CustomButton>
+                </div>
+            </div>
+        </MudPaper>
+    </div>
+</MudContainer>
+
+@code {
+    private string? areaName;
+    private string? campus;
+    private bool added;
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+    private IEnumerable<Campus>? campuss;
+
+    protected override async Task OnInitializedAsync()
+    {
+        campuss = await CampusRepository.ListCampusAsync();
+    }
+
+    private async Task OnCampusChanged(string selectedCampus)
+    {
+        campus = selectedCampus;
+        ValidateCampusNameFormat(campus);
+    }
+
+    private async Task SubmitArea()
+    {
+        try
+        {
+            showError = false;
+            errorMessage = string.Empty;
+
+            // Trigger all field validations
+            ValidateNameFormat(areaName);
+            ValidateCampusNameFormat(campus);
+
+            if (HasValidationErrors())
+            {
+                showError = true;
+                errorMessage = "Por favor corrija los errores en el formulario.";
+                return;
+            }
+
+            var newArea = new Area(new EntityName(areaName!), new EntityName(campus!));
+            added = await AreaRepository.AddAreaAsync(newArea);
+
+            if (added)
+            {
+                Snackbar.Add("Área agregada exitosamente", Severity.Success);
+                NavigationManager.NavigateTo("/areas");
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo agregar el área. Por favor intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+
+            if (ex is ErrorResponse)
+            {
+                errorMessage = $"El campus '{campus}' no existe o no se pudo validar. Por favor verifique el nombre.";
+            }
+            else if (ex.Message.Contains("404") || ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            {
+                errorMessage = $"El área '{campus}' no existe. Por favor verifique el nombre.";
+            }
+            else
+            {
+                errorMessage = $"Ocurrió un error inesperado: {ex.Message}";
+            }
+        }
+    }
+}

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.6" />
+	<PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="9.0.6" />
+	<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.6" />
+    <PackageReference Include="MudBlazor" Version="8.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Frontend.Blazor.Application\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.Domain\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.Infrastructure\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

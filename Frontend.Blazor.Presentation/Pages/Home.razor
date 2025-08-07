@@ -1,0 +1,39 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+
+@attribute [Authorize]
+@page "/"
+
+<AuthorizeView Policy="AtLeastOnePermission">
+    <div class="carousel-fullwidth-wrapper">
+        <ImageCarousel ImagePaths="@_carouselImagePaths" />
+    </div>
+
+    <div class="carousel-fullwidth-wrapper">
+        <div class="p-4 rounded shadow-sm bg-white mt-4" style="border-radius: 18px; box-shadow: 0 4px 24px 0 rgba(0,0,0,0.08);">
+            <h1 class="text-h1">¡Bienvenid@@, <strong>Usuario</strong>! 👋🏻</h1>
+            <MudText Typo="Typo.body1" Class="text-body" Style="text-align: justify;">
+                Esta plataforma innovadora permite administrar y explorar digitalmente la Universidad de Costa Rica mediante tecnologías Web y de Realidad Virtual.
+                Ofrece herramientas para gestionar usuarios, edificios, espacios de aprendizaje, componentes y campus universitarios, con distintos roles de acceso
+                (administrador, editor y visualizador). Además de brindar una experiencia inmersiva, facilita la organización, visualización y acceso a la información
+                institucional desde una perspectiva moderna, colaborativa y accesible.
+            </MudText>
+        </div>
+    </div>
+
+    <MudItem xs="6" class="my-4" />
+
+</AuthorizeView>
+
+@code {
+    private List<string> _carouselImagePaths = new List<string>
+    {
+        "img/imgCarousel1.png",
+        "img/imgCarousel2.png",
+        "img/imgCarousel3.png",
+        "img/imgCarousel4.png",
+		"img/imgCarousel5.png"
+    };
+}

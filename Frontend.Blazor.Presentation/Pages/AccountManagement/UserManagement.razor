@@ -1,0 +1,278 @@
+﻿@page "/user-management"
+
+@*
+This Blazor page provides a user management interface for the application.
+It displays a list of users with their associated personal information in a table.
+*@
+
+@using MudBlazor
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services.Implementations
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject IUserWithPersonService UserWithPersonService
+@inject NavigationManager NavManager
+@inject UserNavigationContext NavContext
+
+@attribute [Authorize]
+
+<Header />
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+    <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+        <MudBreadcrumbs Items="_items">
+            <ItemTemplate Context="item">
+                @if (item.Disabled)
+                {
+                    <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+                }
+                else
+                {
+                    <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+                }
+            </ItemTemplate>
+        </MudBreadcrumbs>
+
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <h1 class="text-h1">Administración de Usuarios</h1>
+
+
+            <div class="d-flex gap-2">
+                <div class="cancel-wrapper">
+                    <AuthorizeView Policy="View Audit">
+                        <Authorized>
+                            <CustomButton ButtonType="cancel"
+                                          Variant="Variant.Outlined"
+                                          OnClick="@OnViewUserAuditClicked">
+                                BITÁCORA
+                            </CustomButton>
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+                <AuthorizeView Policy="Create Users">
+                    <Authorized>
+                        <CustomButton ButtonType="add"
+                                      Variant="Variant.Filled"
+                                      OnClick="@OnAddUserClicked">
+                            AGREGAR
+                        </CustomButton>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+            
+
+        </div>
+        <ElegantSearchBar OnSearch="HandleSearch" Placeholder="Buscar por usuario, rol, correo..."/>
+
+        @if (!_initialLoadComplete)
+        {
+            <Spinner/>
+        }
+        else
+        {
+            <div class="table-container" style="overflow-x: auto; width: 100%;">
+                <MudTable @ref="_table"
+                            T="UserWithPerson"
+                            Style="min-width: 650px; white-space: nowrap; table-layout: fixed;"
+                            ServerData="LoadServerData"
+                            Elevation="1"
+                            Hover="true"
+                            Bordered="true"
+                            Striped="true"
+                            Class="mt-4"
+                            FixedHeader="true"
+                            Dense="true"
+                            CustomHeader="true"
+                            Breakpoint="Breakpoint.None"
+                            RowsPerPage="@_rowsPerPage"
+                            RowsPerPageOptions="@_rowsPerPageOptions"
+                            ForceServerData="true"
+                            OnRowsPerPageChanged="HandleRowsPerPageChanged">
+
+                    <HeaderContent>
+                        <MudTh class="no-wrap" style="width: 16%"><span class="text-h3">Usuario</span></MudTh>
+                        <MudTh class="no-wrap" style="width: 16%"><span class="text-h3">Identificación</span></MudTh>
+                        <MudTh class="no-wrap" style="width: 18%"><span class="text-h3">Nombre completo</span></MudTh>
+                        <MudTh class="no-wrap" style="width: 15%"><span class="text-h3">Roles</span></MudTh>
+                        <MudTh class="no-wrap" style="width: 23%"><span class="text-h3">Correo</span></MudTh>
+                        <MudTh class="no-wrap" style="width: 19%"><span class="text-h3">Teléfono</span></MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate Context="context">
+                        <MudTd class="text-body no-wrap">@context.UserName.Value</MudTd>
+                        <MudTd class="text-body no-wrap">@context.IdentityNumber.Value</MudTd>
+                        <MudTd class="text-body no-wrap">
+                            <span class="mud-primary-text mud-link mud-link-underline-hover cursor-pointer"
+                                    @onclick="() => GoToUserDetails(context.UserId)">
+                                @context.FirstName @context.LastName
+                            </span>
+                        </MudTd>
+                        <MudTd class="text-body no-wrap">
+                            @(context.Roles?.Any() == true ? string.Join(", ", context.Roles) : "Sin rol")
+                        </MudTd>
+                        <MudTd class="text-body no-wrap">@context.Email.Value</MudTd>
+                        <MudTd class="text-body no-wrap">@context.Phone.Value</MudTd>
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudText Class="text-h3"> No hay elementos para mostrar. </MudText>
+                    </NoRecordsContent>
+
+                    <PagerContent>
+                        <TablePager />           
+                    </PagerContent>
+
+
+                </MudTable>
+            </div>
+        }
+    </div>
+</MudContainer>
+
+
+@code {
+    /// <summary>
+    /// Reference to the MudTable component displaying users.
+    /// </summary>
+    private MudTable<UserWithPerson>? _table;
+
+    /// <summary>
+    /// Indicates whether the initial data load for the user table is complete.
+    /// </summary>
+    private bool _initialLoadComplete;
+
+    /// <summary>
+    /// Tracks the last user ID for each page to support server-side pagination.
+    /// </summary>
+    private Dictionary<int, int> lastUserIdsByPage = new();
+
+    /// <summary>
+    /// Current number of rows per page in the table.
+    /// </summary>
+    private int _rowsPerPage = 10;
+
+    /// <summary>
+    /// Available options for the number of rows per page.
+    /// </summary>
+    private int[] _rowsPerPageOptions = new[] { 5, 10, 15, 20 };
+
+    /// <summary>
+    /// Breadcrumb navigation items for the page.
+    /// </summary>
+    private List<BreadcrumbItem> _items = new()
+    {
+        new BreadcrumbItem("INICIO", href: "/"),
+        new BreadcrumbItem("ADMINISTRACIÓN DE USUARIOS", href: "/user-management"),
+    };
+    private string _searchText = string.Empty;
+
+    /// <summary>
+    /// Initializes the component, ensures the current rows-per-page is in the options,
+    /// triggers an initial data load for the user table, and marks the initial load as complete.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        if (!_rowsPerPageOptions.Contains(_rowsPerPage))
+        {
+            _rowsPerPageOptions = _rowsPerPageOptions.Append(_rowsPerPage).ToArray();
+        }
+
+        await InvokeAsync(StateHasChanged);
+
+        var initialState = new TableState { Page = 0, PageSize = _rowsPerPage };
+        await LoadServerData(initialState, new CancellationToken());
+
+        _initialLoadComplete = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Handles changes to the number of rows per page.
+    /// Clears the pagination cache.
+    /// </summary>
+    /// <param name="newSize">The new number of rows per page.</param>
+    private void HandleRowsPerPageChanged(int newSize)
+    {
+        _rowsPerPage = newSize;
+        lastUserIdsByPage.Clear();
+    }
+
+    /// <summary>
+    /// Navigates to the user details page for the selected user.
+    /// </summary>
+    /// <param name="userId">The ID of the selected user.</param>
+    private void GoToUserDetails(int userId)
+    {
+        NavContext.SelectedUserId = userId;
+        NavManager.NavigateTo("/user-details");
+    }
+
+    /// <summary>
+    /// Navigates to the add user page.
+    /// </summary>
+    private void OnAddUserClicked()
+    {
+        NavManager.NavigateTo("/add-user");
+    }
+
+    /// <summary>
+    /// Navigates to the view user audit page.
+    /// </summary>
+    private void OnViewUserAuditClicked()
+    {
+        NavManager.NavigateTo("/user-audit");
+    }
+
+    /// <summary>
+    /// Loads paginated user data from the server for the MudTable.
+    /// </summary>
+    /// <param name="state">The current table state (page, page size, etc.).</param>
+    /// <param name="cancellationToken">Cancellation token for the async operation.</param>
+    /// <returns>TableData containing the users and total count.</returns>
+    private async Task<TableData<UserWithPerson>> LoadServerData(TableState state, CancellationToken cancellationToken)
+    {
+        try
+        {
+            int page = state.Page;
+            int pageSize = state.PageSize;
+            int lastUserId = page > 0 && lastUserIdsByPage.TryGetValue(page - 1, out var cachedPageIndex)
+                ? cachedPageIndex
+                : 0;
+
+            var result = await UserWithPersonService.GetPaginatedUsersAsync(pageSize, page, _searchText);
+
+
+            if (result.Any())
+                lastUserIdsByPage[page] = result.PageIndex;
+
+            return new TableData<UserWithPerson>
+                {
+                    Items = result,
+                    TotalItems = result.TotalCount
+                };
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading data: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Handles the search operation for the user management table.
+    /// Updates the search text, clears the pagination cache, and reloads the table data.
+    /// </summary>
+    /// <param name="searchText">The search text entered by the user.</param>
+    private async Task HandleSearch(string searchText)
+    {
+        _searchText = searchText;
+        lastUserIdsByPage.Clear();
+        await _table!.ReloadServerData();
+    }
+
+}

@@ -1,0 +1,149 @@
+﻿@using System.Text.RegularExpressions
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.Kiota.Models
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.Mappers
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services.Implementations
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components
+@using MudBlazor
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using System.Text.Json
+
+@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@attribute [Authorize]
+@inherits LayoutComponentBase
+
+<AuthorizeView>
+    <Authorized>
+        <MudThemeProvider Theme="MyCustomTheme" />
+        <MudPopoverProvider />
+        <MudDialogProvider />
+        <MudSnackbarProvider />
+        <!-- Custom MudAppBar Header -->
+        <MudAppBar Elevation="0" Color="Color.Primary" Class="mud-text-primary px-4">
+            <!-- Left: Logo -->
+            <MudLink Href="#">
+                <MudImage Src="./img/firma-ucr.png"
+                          Alt="UCR Logo"
+                          Style="max-height: 45px;" />
+            </MudLink>
+
+            <!-- Spacer -->
+            <MudSpacer />
+
+            <!-- Top Right: Account Menu -->
+            <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
+                     Color="Color.Inherit"
+                     AnchorOrigin="Origin.BottomCenter"
+                     TransformOrigin="Origin.TopCenter"
+                     Dense="false"
+                     Size="Size.Large">
+                <AuthorizeView Context="auth">
+                    @if (auth.User.Identity?.IsAuthenticated == true)
+                    {
+                        <MudMenuItem>
+                            <form action="logout?returnUrl=/login" method="post" style="margin: 0;">
+                                <AntiforgeryToken />
+                                <button type="submit" class="btn btn-link text-start p-0 m-0 w-100 logout-button">
+                                    Cerrar sesión
+                                </button>
+                            </form>
+                        </MudMenuItem>
+                    }
+                </AuthorizeView>
+            </MudMenu>
+            <style>
+                .logout-button {
+                    text-decoration: none !important;
+                    color: var(--mud-palette-primary) !important;
+                    transition: color 0.3s ease;
+                }
+                .logout-button:hover {
+                    color: var(--mud-palette-primary-darken) !important;
+                    text-decoration: none !important;
+                }
+                .logout-button:focus {
+                    text-decoration: none !important;
+                    outline: none;
+                    box-shadow: 0 0 0 2px rgba(var(--mud-palette-primary-rgb), 0.2);
+                }
+            </style>
+        </MudAppBar>
+        <MudLayout>
+            @if (!IsInAuthErrorPage && !IsInAuthInitPage)
+            {
+                <NavMenu />
+            }
+
+            <MudMainContent Style="min-height: calc(100vh - 112px - 60px); margin-top: 112px; display: flex; flex-direction: column;">
+                <MudContainer MaxWidth="MaxWidth.Medium">
+                    @Body
+                </MudContainer>
+            </MudMainContent>
+
+            <Footer />
+        </MudLayout>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private bool IsInAuthErrorPage => Nav.Uri.Contains("/auth-error", StringComparison.OrdinalIgnoreCase);
+    private bool IsInAuthInitPage => Nav.Uri.Contains("/auth-init", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+
+        if (user.Identity?.IsAuthenticated == true && IsInAuthErrorPage)
+        {
+            Nav.NavigateTo("/", forceLoad: true);
+            return;
+        }
+
+        if (user.Identity?.IsAuthenticated == true &&
+            !Nav.Uri.Contains("/auth-init"))
+        {
+            Nav.NavigateTo("/auth-init", forceLoad: true);
+            return;
+        }
+    }
+
+
+    MudTheme MyCustomTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#41ADE7",
+            Secondary = "#FFFFFF",
+            Success = "#609000",
+            Tertiary = "#666666",
+            AppbarBackground = "#204C6F",
+            Error = "#f44336",
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#41ADE7",
+            Secondary = "#FFFFFF",
+            Tertiary = "#666666",
+            AppbarBackground = "#204C6F",
+            Error = "#f44336",
+        },
+
+        LayoutProperties = new LayoutProperties()
+        {
+            DrawerWidthLeft = "260px",
+            DrawerWidthRight = "300px"
+        }
+    };
+}

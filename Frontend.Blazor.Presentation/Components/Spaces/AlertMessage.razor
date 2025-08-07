@@ -1,0 +1,76 @@
+@using MudBlazor
+
+@inject NavigationManager Navigation
+
+<!--
+    AlertMessage Component
+    Displays an informational alert message. 
+    If the related resource (e.g., a floor in a building) is not found, 
+    it offers the user the option to add a new one.
+
+    Parameters:
+      - buildingId: The ID of the related building.
+      - message: The main message to display.
+      - notFound: Indicates if the resource was not found (shows extra options if true).
+-->
+
+<MudPaper Elevation="0"
+          Class="pa-8 my-4 w-100"
+          Style="background-color: #ECECEC; border-radius: 8px;">
+    <MudGrid Justify="Justify.Center" Class="d-flex flex-column align-center">
+        <!-- Info icon -->
+        <MudItem>
+            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Large" Color="Color.Info" />
+        </MudItem>
+
+        <!-- Main message and additional prompt if not found -->
+        <MudItem Class="mt-3 text-center">
+            <MudText Typo="Typo.h6">@message</MudText>
+            @if (notFound)
+            {
+                <MudText Typo="Typo.body1" Class="mt-1">¿Desea agregar uno?</MudText>
+            }
+        </MudItem>
+
+        <!-- Button to add a new floor if not found -->
+        @if (notFound)
+        {
+            <MudItem Class="mt-4">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OnAddFloorClicked">
+                    Agregar un piso
+                </MudButton>
+            </MudItem>
+        }
+    </MudGrid>
+</MudPaper>
+
+@code {
+    /// <summary>
+    /// The ID of the building to which the resource belongs.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public int buildingId { get; set; }
+
+    /// <summary>
+    /// The main message to display in the alert.
+    /// </summary>
+    [Parameter]
+    public string message { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Indicates whether the resource was not found.
+    /// </summary>
+    [Parameter]
+    public bool notFound { get; set; } = false;
+    
+    /// <summary>
+    /// Navigates to the page to show the building and add a new floor.
+    /// </summary>
+    private void OnAddFloorClicked()
+    {
+        Navigation.NavigateTo($"/edificios/mostrar-edificio/{buildingId}");
+    }
+}

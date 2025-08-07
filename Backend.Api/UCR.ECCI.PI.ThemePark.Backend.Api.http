@@ -1,0 +1,6 @@
+@UCR.ECCI.PI.ThemePark.Backend.Api_HostAddress = http://localhost:5239
+
+GET {{UCR.ECCI.PI.ThemePark.Backend.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

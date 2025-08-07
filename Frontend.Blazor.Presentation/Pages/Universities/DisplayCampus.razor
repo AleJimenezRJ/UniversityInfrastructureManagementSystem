@@ -1,0 +1,131 @@
+@page "/sedes/mostrar-sede/{CampusName}"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Policy = "View Specific Campus")]
+@inject ICampusServices CampusServices
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IPermissionContext PermissionContext
+
+<CleanBreadcrumbs EntityName="@CampusName" />
+<PageTitle>Sede @campus?.Name!.Name</PageTitle>
+
+<h3 class="text-h1 mt-4 ms-3" style="color: #2c5f7c;">Información de Sede</h3>
+
+@if (isLoading)
+{
+    <Spinner />
+}
+else if (campus is not null)
+{
+    <MudContainer MaxWidth="MaxWidth.False">
+        <MudPaper Class="px-6 py-4" Elevation="1" Style="max-width: 1000px; margin: auto; border-radius: 8px;">
+            <MudGrid Spacing="2" Class="mb-4" Style="padding-left: 16px; padding-right: 16px;">
+
+                <TitleLabel Label="Nombre" />
+                <ValueLabel Value="@campus.Name!.Name" />
+
+                <TitleLabel Label="Ubicación" />
+                <ValueLabel Value="@campus.Location!.Location" />
+
+                <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+                <TitleLabel Label="Universidad" />
+                <ValueLabel Value="@campus.University!.Name!.Name" />
+
+            </MudGrid>
+
+            <div class="button-container mt-4">
+                <CustomButton ButtonType="cancel"
+                              Variant="Variant.Outlined"
+                              OnClick="@(() => NavigationManager.NavigateTo("/sedes"))">
+                    ATRÁS
+                </CustomButton>
+
+                <AuthorizeView Policy="Delete Campus">
+                    <Authorized>
+                        <CustomButton ButtonType="delete"
+                                      Variant="Variant.Filled"
+                                      OnClick="@OnDeleteClicked">
+                            BORRAR
+                        </CustomButton>
+                    </Authorized>
+                </AuthorizeView>
+
+            </div>
+        </MudPaper>
+    </MudContainer>
+
+    <ConfirmDialog @ref="DeleteDialog"
+                   Title="Confirmación"
+                   Message="¿Estás seguro de que deseas eliminar esta sede?"
+                   OkText="Eliminar"
+                   CancelText="Cancelar"
+                   ColorVarOk="--color-primary1" />
+}
+else
+{
+    <p><em>Sede no encontrada.</em></p>
+}
+
+@code {
+    [Parameter]
+    public string CampusName { get; set; } = string.Empty;
+
+    private Campus? campus;
+    private bool isLoading = true;
+    private ConfirmDialog? DeleteDialog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            campus = await CampusServices.GetByNameAsync(CampusName);
+        }
+        catch
+        {
+            campus = null;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnDeleteClicked()
+    {
+        bool confirmed = await DeleteDialog!.ShowAsync();
+
+        if (!confirmed)
+            return;
+
+        await DeleteCampus();
+    }
+
+    private async Task DeleteCampus()
+    {
+        try
+        {
+            var deleted = await CampusServices.DeleteCampusAsync(CampusName);
+
+            if (deleted)
+            {
+                Snackbar.Add("La sede fue eliminada exitosamente.", Severity.Success);
+                NavigationManager.NavigateTo("/sedes");
+            }
+            else
+            {
+                Snackbar.Add("No se pudo eliminar la sede. Inténtalo de nuevo.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ocurrió un error inesperado: {ex.Message}", Severity.Error);
+        }
+    }
+}

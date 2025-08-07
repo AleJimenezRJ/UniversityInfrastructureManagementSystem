@@ -1,0 +1,33 @@
+﻿@* NumericInput.razor *@
+<MudItem xs="@Xs" sm="@Sm">
+    <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color: #2c5f7c; font-weight: 500;">
+        @Label
+    </MudText>
+    <MudTextField @bind-Value="InternalValue"
+                  Variant="Variant.Outlined"
+                  Style="background: white;"
+                  FullWidth="true"
+                  ReadOnly="@ReadOnly" />
+</MudItem>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public int Xs { get; set; } = 12;
+    [Parameter] public int Sm { get; set; } = 4;
+    [Parameter] public double Value { get; set; }
+    [Parameter] public EventCallback<double> ValueChanged { get; set; }
+
+    private double InternalValue
+    {
+        get => Value;
+        set
+        {
+            if (Math.Abs(Value - value) > 0.0001)
+            {
+                Value = value;
+                ValueChanged.InvokeAsync(value);
+            }
+        }
+    }
+}

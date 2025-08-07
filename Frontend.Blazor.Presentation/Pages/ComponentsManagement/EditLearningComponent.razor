@@ -1,0 +1,746 @@
+﻿@page "/edificios/{buildingId:int}/pisos/{floorId:int}/espacios-de-aprendizaje/{learningSpaceId:int}/actualizar-componente/{componentId:int}"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Colors = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement.Colors
+@using Orientation = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.ComponentsManagement.Orientation
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Helpers
+@using Microsoft.AspNetCore.Authorization
+
+@attribute [Authorize(Policy = "Edit Components")]
+@inject ISnackbar Snackbar
+@inject ILearningComponentServices LearningComponentService
+@inject IBuildingsServices BuildingService
+@inject ILearningSpaceServices LearningSpaceService
+@inject IFloorServices FloorService
+@inject NavigationManager Navigation
+<div style="overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+    <MudBreadcrumbs Items="_items">
+        <ItemTemplate Context="item">
+            @if (item.Disabled)
+            {
+                <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+            }
+            else
+            {
+                <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+            }
+        </ItemTemplate>
+    </MudBreadcrumbs>
+    <PageTitle>Editar Componente</PageTitle>
+
+    <h1 class="text-h1">Editar Componente</h1>
+    <div style="display: flex; 
+                    justify-content: space-between; 
+                    align-items: flex-start;
+                    flex-wrap: wrap; 
+                    gap: 1rem; 
+                    width: 100%; 
+                    margin-bottom: 1rem;">
+            <MudText Typo="Typo.subtitle1" Style="color: #204c6f;">
+                <strong>Edificio:</strong> @_buildingName<br />
+                <strong>Piso:</strong> @_floorNum<br />
+                <strong>Espacio de aprendizaje:</strong> @_learningSpaceName
+            </MudText>            
+    </div>
+    <MudPaper Class="pa-4" Style="margin-top: 1rem;">
+        @if (isLoading)
+        {
+            <Spinner />
+        }
+        else if (component == null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">No se pudo cargar el componente.</MudAlert>
+        }
+        else
+        {
+            <EditForm Model="@component" OnValidSubmit="SubmitComponent">
+                <DataAnnotationsValidator />
+                <MudGrid>
+                    <!-- Orientation -->
+                    <MudItem xs="12" sm="4">
+                        <MudText Class="text-h3 mb-2">Orientación</MudText>
+                        <MudSelect T="string"
+                            @bind-Value="orientation"
+                            Variant="Variant.Filled"
+                            Error="@(!string.IsNullOrWhiteSpace(OrientationError))"
+                            ErrorText="@OrientationError"
+                            OnBlur="ValidateOrientation">
+                            @foreach (var dir in availableOrientations)
+                            {
+                                <MudSelectItem Value="@dir">@OrientationTranslator.ToSpanish(dir)</MudSelectItem>
+                            }
+                        </MudSelect>                        
+                    </MudItem>
+
+
+                    <!-- Position Section -->
+                    <MudItem xs="12" sm="4">
+                            <MudText Class="text-h3 mb-2">
+                                Posición X
+                            </MudText>
+                            <MudNumericField @bind-Value="x"
+                                Variant="Variant.Filled"
+                                FullWidth="true"
+                                Error="@(!string.IsNullOrWhiteSpace(CoordinateError))"
+                                ErrorText="@CoordinateError"
+                                OnBlur="@ValidatePosition"
+                                T="double?"
+                                Format="F2"
+                                Step="0.01" />                        
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                            <MudText Class="text-h3 mb-2">
+                                Posición Y
+                            </MudText>
+                            <MudNumericField @bind-Value="y"
+                                Variant="Variant.Filled"
+                                FullWidth="true"
+                                Error="@(!string.IsNullOrWhiteSpace(CoordinateError))"
+                                ErrorText="@CoordinateError"
+                                OnBlur="@ValidatePosition"
+                                T="double?"
+                                Format="F2"
+                                Step="0.01" />                        
+                    </MudItem>
+
+                    <!-- Dimensions -->
+                    <MudItem xs="12" sm="4">
+                        <MudText Class="text-h3 mb-2">
+                            Ancho
+                        </MudText>
+                        <MudNumericField @bind-Value="width"
+                            Variant="Variant.Filled"
+                            FullWidth="true"
+                            Min="0"
+                            Error="@(!string.IsNullOrWhiteSpace(WidthError))"
+                            ErrorText="@WidthError"
+                            OnBlur="@ValidateDimensions"
+                            T="double?"
+                            Format="F2"
+                            Step="0.01" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudText Class="text-h3 mb-2">
+                            Profundidad
+                        </MudText>
+                        <MudNumericField @bind-Value="length"
+                            Variant="Variant.Filled"
+                            FullWidth="true"
+                            Min="0"
+                            Error="@(!string.IsNullOrWhiteSpace(LengthError))"
+                            ErrorText="@LengthError"
+                            OnBlur="@ValidateDimensions"
+                            T="double?"
+                            Format="F2"
+                            Step="0.01" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudText Class="text-h3 mb-2">
+                            Alto
+                        </MudText>
+                        <MudNumericField @bind-Value="height"
+                            Variant="Variant.Filled"
+                            FullWidth="true"
+                            Min="0"
+                            Error="@(!string.IsNullOrWhiteSpace(HeightError))"
+                            ErrorText="@HeightError"
+                            OnBlur="ValidateHeight"
+                            T="double?"
+                            Format="F2"
+                            Step="0.01" />
+                    </MudItem>
+
+
+                    @if (component is Projector projector)
+                    {
+                        <!-- Projector Specific Fields -->
+                        <MudItem xs="12" sm="6">
+                                <MudText Class="text-h3 mb-2">
+                                    Largo proyectado
+                                </MudText>
+                                <MudNumericField 
+                                    @bind-Value="projectionAreaLength" 
+                                    Variant="Variant.Filled"
+                                    FullWidth="true"
+                                    Min="0"
+                                    Error="@(!string.IsNullOrWhiteSpace(ProjectedWidthError))"
+                                    ErrorText="@ProjectedWidthError"
+                                    OnBlur="ValidateProjectedWidth"
+                                    T="double?"
+                                    Format="F2"
+                                    Step="0.01" />
+                                
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6">
+                                <MudText Class="text-h3 mb-2">
+                                    Altura proyectada
+                                </MudText>
+                                <MudNumericField 
+                                    @bind-Value="projectionAreaHeight" 
+                                    Variant="Variant.Filled"
+                                    FullWidth="true"
+                                    Min="0"
+                                    Error="@(!string.IsNullOrWhiteSpace(ProjectedHeightError))"
+                                    ErrorText="@ProjectedHeightError"
+                                    OnBlur="ValidateProjectedHeight"
+                                    T="double?"
+                                    Format="F2"
+                                    Step="0.01" />                            
+                        </MudItem>
+
+                        <MudItem xs="12" sm="6">
+                            <div style="width: 500px;">
+                                <MudText Class="text-h3 mb-2">
+                                    Contenido proyectado
+                                </MudText>
+                                <MudTextField T="string"
+                                              @bind-Value="projectedContent"
+                                              Variant="Variant.Filled"
+                                              FullWidth="true"
+                                              Error="@(!string.IsNullOrWhiteSpace(ProjectedContentError))"
+                                              ErrorText="@ProjectedContentError"
+                                              OnBlur="ValidateProjectedContent" />
+                            </div>
+                        </MudItem>
+                    }
+                    @if (component is Whiteboard whiteboard)
+                    {
+                        // Marker Color
+                        <MudItem xs="12" sm="6">
+                            <div style="width: 200px;">
+                                <MudText Class="text-h3 mb-2">Color del marcador</MudText>
+                                <ColorPicker Value="@this.markerColor"
+                                             ValueChanged="@(v => this.markerColor = v)"
+                                             ErrorText="@this.MarkerColorError" />
+                            </div>
+                        </MudItem>
+                    }
+                    <MudItem xs="12">
+                        <ComponentMap @ref="componentMap"
+                        x="@x" y="@y"
+                        width="@width" length="@length"
+                        ComponentId="@ComponentId" LearningSpaceId="@learningSpaceId"
+                        XChanged="val => x = val ?? x"
+                        YChanged="val => y = val ?? y"
+                        WidthChanged="val => width = val ?? width"
+                        LengthChanged="val => length = val ?? length"
+                        OnCollision="HandleCollision" />
+                    </MudItem>
+
+
+                    <!-- Buttons -->
+                    <MudItem xs="12" Class="d-flex justify-end mt-4">
+                        <div class="d-flex gap-2">
+                            <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@(() => Navigation.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes/{ComponentId}"))">
+                                Cancelar
+                            </CustomButton>
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                                       Style="background-color: var(--color-primary3); color: var(--color-primary2)" Disabled="@isSaving">
+                                Guardar
+                            </MudButton>
+                        </div>
+                    </MudItem>
+                </MudGrid>
+            </EditForm>
+        }
+    </MudPaper>
+</div>
+@code {
+    /// <summary>
+    /// The name of the building where the learning space is located. 
+    /// Retrieved from the BuildingService and displayed in the UI.
+    /// </summary>
+    private string? _buildingName;
+
+    /// <summary>
+    /// The floor number where the learning space is located.
+    /// Retrieved from the FloorService and displayed in the UI.
+    /// </summary>
+    private int _floorNum;
+
+    /// <summary>
+    /// The name of the learning space where components are located.
+    /// Retrieved from the LearningSpaceService and displayed in the UI.
+    /// </summary>
+    private string? _learningSpaceName;
+    /// <summary>
+    /// The ID of the building
+    /// </summary>
+    [Parameter] public int buildingId { get; set; }
+    /// <summary>
+    /// The ID of the learning component being edited.
+    /// </summary>
+    [Parameter] public int ComponentId { get; set; }
+
+    /// <summary>
+    /// The ID of the learning space where the component belongs.
+    /// </summary>
+    [Parameter] public int learningSpaceId { get; set; }
+
+    /// <summary>
+    /// The ID of the floor where the learning space is located.
+    /// </summary>
+    [Parameter] public int floorId { get; set; }
+
+    /// <summary>
+    /// Reference to the map component for visualization and interaction
+    /// </summary>
+    private ComponentMap componentMap;
+
+    /// <summary>
+    /// The learning component instance loaded from the backend.
+    /// </summary>
+    private LearningComponent? component;
+
+    /// <summary>
+    /// Indicates whether the component data is still loading.
+    /// </summary>
+    private bool isLoading = true;
+
+    /// <summary>
+    /// Indicates whether the component data is being saved.
+    /// </summary>
+    private bool isSaving = false;
+
+    /// <summary>
+    /// Error handling properties
+    /// </summary>
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+
+    /// <summary>
+    /// Position attributes (X, Y, Z) of the component.
+    /// </summary>
+    private double? x;
+    private double? y;
+    private double? z;
+
+    /// <summary>
+    /// Dimension attributes (length, width, height) of the component.
+    /// </summary>
+    private double? length;
+    private double? width;
+    private double? height;
+
+    /// <summary>
+    /// Orientation of the component.
+    /// </summary>
+    private string? orientation;
+
+    /// <summary>
+    /// Specific to Projector: content being projected.
+    /// </summary>
+    private string? projectedContent;
+
+    /// <summary>
+    /// Specific to Projector: length of the projected area.
+    /// </summary>
+    private double? projectionAreaLength;
+
+    /// <summary>
+    /// Specific to Projector: height of the projected area.
+    /// </summary>
+    private double? projectionAreaHeight;
+
+    /// <summary>
+    /// Specific to Whiteboard: selected marker color.
+    /// </summary>
+    private string? markerColor = "";
+
+    /// <summary>
+    /// List of available orientations to be shown in the dropdown.
+    /// </summary>
+    private readonly List<string> availableOrientations = OrientationTranslator.AllOrientations.ToList();
+
+    /// <summary>
+    /// List of available marker colors for whiteboards.
+    /// </summary>
+    // private readonly List<Colors> availableColors = ColorTranslator.GetAllColors();
+
+    /// <summary>
+    /// Validation error messages for each field
+    /// </summary>
+    private string? OrientationError;
+    private string? ProjectedContentError;
+    private string? MarkerColorError;
+    private string? WidthError;
+    private string? HeightError;
+    private string? LengthError;
+    private string? ProjectedHeightError;
+    private string? ProjectedWidthError;
+    private string? CoordinateError;
+
+    /// <summary>
+    /// Breadcrumb navigation items
+    /// </summary>
+    private List<BreadcrumbItem> _items = new();
+
+    /// <summary>
+    /// Previous values to revert in case of collision
+    /// </summary>
+    private double? previousX;
+    private double? previousY;
+    private double? previousWidth;
+    private double? previousLength;
+
+    /// <summary>
+    /// Initializes the component and sets up the breadcrumb navigation
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+        new BreadcrumbItem("Inicio", href: "/"),
+        new BreadcrumbItem("Edificios", href: "/edificios"),
+        new BreadcrumbItem("Pisos", href: $"/edificios/{buildingId}/pisos"),
+        new BreadcrumbItem("Espacios de Aprendizaje", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje"),
+        new BreadcrumbItem("Componentes", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes"),
+        new BreadcrumbItem("Actualizar Componente", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/actualizar-componente/{ComponentId}")
+        };
+    }
+
+    /// <summary>
+    /// Loads the component data from the backend service based on the ComponentId.
+    /// Also initializes form fields based on the component type.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            component = await LearningComponentService.GetSingleLearningComponentByIdAsync(ComponentId);
+
+            if (component != null)
+            {
+                x = component.Position.X;
+                y = component.Position.Y;
+                z = 0;
+                length = component.Dimensions.Length;
+                width = component.Dimensions.Width;
+                height = component.Dimensions.Height;
+                orientation = component.Orientation.Value;
+
+                // Initialize previous values
+                previousX = x;
+                previousY = y;
+                previousWidth = width;
+                previousLength = length;
+
+                var building = await BuildingService.DisplayBuildingAsync(this.buildingId);
+                var floorList = await FloorService.GetFloorsListAsync(this.buildingId);
+                var currentFloor = floorList!.FirstOrDefault(f => f.FloorId == floorId);
+                var learningSpace = await LearningSpaceService.GetLearningSpaceAsync(this.learningSpaceId);
+
+                _buildingName = building!.Name!.Name;
+                _learningSpaceName = learningSpace!.Name!.Name;
+                _floorNum = currentFloor!.Number.Value;
+
+                if (component is Projector projector)
+                {
+                    projectedContent = projector.ProjectedContent;
+                    projectionAreaLength = projector.ProjectionArea!.Length;
+                    projectionAreaHeight = projector.ProjectionArea!.Height;
+                }
+                else if (component is Whiteboard whiteboard)
+                {
+                    markerColor = whiteboard.MarkerColor!.Value;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error al cargar los datos del componente.", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Handles collision events from the ComponentMap
+    /// </summary>
+    /// <param name="message">Error message describing the collision</param>
+    private void HandleCollision(string message)
+    {
+        CoordinateError = message;
+
+        // Revert to previous values
+        x = previousX;
+        y = previousY;
+        width = previousWidth;
+        length = previousLength;
+
+        showError = true;
+        errorMessage = message;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Validates the position when field values change
+    /// </summary>
+    private void ValidatePosition()
+    {
+        if (componentMap != null)
+        {
+
+            if (componentMap.ValidateNoCollision(newX: x, newY: y))
+            {
+                // If no collision, update previous values
+                previousX = x;
+                previousY = y;
+                CoordinateError = null;
+                showError = false;
+            }
+            else
+            {
+                // If collision occurs, revert
+                x = previousX;
+                y = previousY;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Validates the dimensions when field values change
+    /// </summary>
+    private void ValidateDimensions()
+    {
+        if (componentMap != null)
+        {
+            // Temporarily store current values
+            if (componentMap.ValidateNoCollision(newWidth: width, newLength: length))
+            {
+                // If no collision, update previous values
+                previousWidth = width;
+                previousLength = length;
+                WidthError = null;
+                LengthError = null;
+                showError = false;
+            }
+            else
+            {
+                // If collision occurs, revert
+                width = previousWidth;
+                length = previousLength;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Submits the edited component to the backend service for update.
+    /// Maps form fields back into the domain model and performs type-specific assignments.
+    /// Shows a snackbar with success or error messages.
+    /// </summary>
+    private async Task SubmitComponent()
+    {
+        ValidateOrientation();
+        ValidateWidth();
+        ValidateHeight();
+        ValidateLength();
+
+        // Validate projector-specific fields if the component is a Projector
+        if (component is Projector)
+        {
+            ValidateProjectedContent();
+            ValidateProjectedHeight();
+            ValidateProjectedWidth();
+        }
+         if (!string.IsNullOrEmpty(OrientationError) ||
+            !string.IsNullOrEmpty(WidthError) ||
+            !string.IsNullOrEmpty(HeightError) ||
+            !string.IsNullOrEmpty(LengthError) ||
+           (component is Projector && (
+                !string.IsNullOrEmpty(ProjectedContentError) ||
+                !string.IsNullOrEmpty(ProjectedHeightError) ||
+                !string.IsNullOrEmpty(ProjectedWidthError))) ||
+           (component is Whiteboard && !string.IsNullOrEmpty(MarkerColorError)))
+        {
+            return;
+        }
+        try
+        {
+            isSaving = true;
+            // Map form fields to new value objects for position, dimensions, and orientation
+            var newPosition = new UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Coordinates(x, y, z);
+            var newDimensions = new Dimension((double)width!, (double)length!, (double)height!);
+            var newOrientation = new Orientation(orientation!);
+
+            component.Position = newPosition;
+            component.Dimensions = newDimensions;
+            component.Orientation = newOrientation;
+
+            // Assign type-specific properties for Projector or Whiteboard
+            if (component is Projector projector)
+            {
+                projector.ProjectedContent = projectedContent;
+                projector.ProjectionArea = new Area2D((double)projectionAreaLength!, (double)projectionAreaHeight!);
+            }
+            else if (component is Whiteboard whiteboard)
+            {
+                whiteboard.MarkerColor = Colors.Create(markerColor!);
+            }
+
+            // Send the update request to the backend service
+            bool success = await LearningComponentService.UpdateLearningComponentAsync(learningSpaceId, component);
+
+            if (success)
+            {
+                // Show success message and navigate back to the component list
+                Snackbar.Add("Componente actualizado exitosamente.", Severity.Success);
+                Navigation.NavigateTo($"/edificios/{buildingId}/pisos/{@floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes");
+            }
+            else
+            {
+                // Show error message if the update failed
+                showError = true;
+                errorMessage = $"No se pudo actualizar el componente {LearningComponentFormatter.GetFormattedId(component)}.";
+
+            }
+        }
+        catch (Exception ex)
+        {
+            // Show error message if an unexpected exception occurs
+            showError = true;
+            errorMessage = $"Error inesperado: {ex.Message}";
+        }
+        finally
+        {
+            // Reset the saving state
+            isSaving = false;
+        }
+    }
+
+    /// <summary>
+    /// Resets all error messages and flags
+    /// </summary>
+    private void ResetAllErrors()
+    {
+        OrientationError = null;
+        WidthError = null;
+        HeightError = null;
+        LengthError = null;
+        CoordinateError = null;
+        ProjectedContentError = null;
+        ProjectedHeightError = null;
+        ProjectedWidthError = null;
+        MarkerColorError = null;
+
+        showError = false;
+        errorMessage = string.Empty;
+    }
+
+    /// <summary>
+    /// Validates the orientation selection
+    /// </summary>
+    private void ValidateOrientation()
+    {
+        if (string.IsNullOrWhiteSpace(orientation))
+        {
+            OrientationError = "Debe seleccionar una orientación.";
+        }
+        else
+        {
+            OrientationError = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Validates the width value is greater than zero
+    /// </summary>
+    private void ValidateWidth()
+    {
+        if (width <= 0)
+        {
+            WidthError = "El ancho debe ser mayor a cero.";
+        }
+        else
+        {
+            WidthError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the height value is greater than zero
+    /// </summary>
+    private void ValidateHeight()
+    {
+        if (height <= 0)
+        {
+            HeightError = "La altura debe ser mayor a cero.";
+        }
+        else
+        {
+            HeightError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the length value is greater than zero
+    /// </summary>
+    private void ValidateLength()
+    {
+        if (length <= 0)
+        {
+            LengthError = "La profundidad debe ser mayor a cero.";
+        }
+        else
+        {
+            LengthError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates that projected content is not empty
+    /// </summary>
+    private void ValidateProjectedContent()
+    {
+        if (string.IsNullOrWhiteSpace(projectedContent))
+        {
+            ProjectedContentError = "Debe ingresar contenido proyectado.";
+        }
+        else
+        {
+            ProjectedContentError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates that projected height is greater than zero
+    /// </summary>
+    private void ValidateProjectedHeight()
+    {
+        if (projectionAreaHeight <= 0)
+        {
+            ProjectedHeightError = "La altura proyectada debe ser mayor a cero.";
+        }
+        else
+        {
+            ProjectedHeightError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates that projected width is greater than zero
+    /// </summary>
+    private void ValidateProjectedWidth()
+    {
+        if (projectionAreaLength <= 0)
+        {
+            ProjectedWidthError = "El largo proyectado debe ser mayor a cero.";
+        }
+        else
+        {
+            ProjectedWidthError = null;
+        }
+    }
+}

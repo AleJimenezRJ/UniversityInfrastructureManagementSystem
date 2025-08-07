@@ -1,0 +1,17 @@
+﻿@using Microsoft.AspNetCore.Components
+
+<MudSelect T="string" Label="@Label" HelperText="@HelperText" MaxLength="12" FitContent="true">
+    @if (Items != null)
+    {
+        foreach (var item in Items)
+        {
+            <MudSelectItem T="string" Value="@item">@item</MudSelectItem>
+        }
+    }
+</MudSelect>
+
+@code {
+    [Parameter] public IEnumerable<string>? Items { get; set; }
+    [Parameter] public string Label { get; set; } = "Select";
+    [Parameter] public string HelperText { get; set; } = "";
+}

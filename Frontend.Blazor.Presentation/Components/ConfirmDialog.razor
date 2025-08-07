@@ -1,0 +1,67 @@
+﻿@using MudBlazor
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+<MudMessageBox @ref="_mudMessageBox" Title="@Title" DisableBackdropClick="true">
+    <MessageContent>
+        @((MarkupString)Message)
+    </MessageContent>
+
+    <NoButton>
+        <div class="button-spacing-wrapper">
+            <CustomButton ButtonType="cancel"
+                          Variant="Variant.Outlined"
+                          OnClick="Cancel">
+                @CancelText
+            </CustomButton>
+        </div>
+    </NoButton>
+
+    <YesButton>
+        <CustomButton ButtonType="delete"
+                      Variant="Variant.Filled"
+                      OnClick="Confirm">
+            @OkText
+        </CustomButton>
+    </YesButton>
+</MudMessageBox>
+
+<style>
+    
+    .button-spacing-wrapper {
+        margin-right: 10px;
+        display: inline-block;
+    }
+
+    .custom-button-cancel {
+        transition: all 0.25s ease-in-out;
+        background-color: transparent !important;
+        border: 1px solid #204C6F !important;
+        color: #204C6F !important;
+    }
+
+        .custom-button-cancel:hover {
+            background-color: #204C6F !important;
+            color: white !important;
+        }
+</style>
+
+
+@code {
+    private MudMessageBox? _mudMessageBox;
+    private TaskCompletionSource<bool>? _tcs;
+
+    [Parameter] public string Message { get; set; } = "¿Estás seguro de que deseas continuar?";
+    [Parameter] public string Title { get; set; } = "Confirmación";
+    [Parameter] public string OkText { get; set; } = "Aceptar";
+    [Parameter] public string CancelText { get; set; } = "Cancelar";
+    [Parameter] public string ColorVarOk { get; set; } = "--color-primary1";
+
+    public async Task<bool> ShowAsync()
+    {
+        _tcs = new TaskCompletionSource<bool>();
+        await _mudMessageBox!.ShowAsync();
+        return await _tcs.Task;
+    }
+
+    private void Confirm() => _tcs?.TrySetResult(true);
+    private void Cancel() => _tcs?.TrySetResult(false);
+}

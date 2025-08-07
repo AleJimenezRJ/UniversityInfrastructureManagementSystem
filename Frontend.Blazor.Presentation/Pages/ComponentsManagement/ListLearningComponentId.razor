@@ -1,0 +1,366 @@
+﻿@page "/edificios/{buildingId:int}/pisos/{floorId:int}/espacios-de-aprendizaje/{learningSpaceId:int}/listar-componentes"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize]
+
+@inject NavigationManager Navigation
+@inject ILearningComponentServices LearningComponentService
+@inject IBuildingsServices BuildingService
+@inject ILearningSpaceServices LearningSpaceService
+@inject IFloorServices FloorService
+@inject IPermissionContext PermissionContext
+
+
+@* 
+    Page for managing learning components within a specific learning space.
+    This page includes:
+    - Breadcrumb navigation to indicate the current location in the app
+    - Page title and section heading
+    - "Add" button to navigate to a page for adding new components
+    - Loading message while the list of components is being retrieved
+    - Informational message when no components are found
+    - A scrollable table listing all existing learning components, showing:
+        - Component ID (clickable link to component details)
+        - Orientation of the component
+        - 3D position (X, Y, Z)
+        - Dimensions (Width x Length x Height)
+*@
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+    <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+        <MudBreadcrumbs Items="_items">
+            <ItemTemplate Context="item">
+                @if (item.Disabled)
+                {
+                    <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+                }
+                else
+                {
+                    <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+                }
+            </ItemTemplate>
+        </MudBreadcrumbs>
+        <PageTitle>Administración de componentes de aprendizaje</PageTitle>
+
+        <h1 class="text-h1">
+            Administración de componentes de aprendizaje
+        </h1>
+        <div style="display: flex; 
+                    justify-content: space-between; 
+                    align-items: flex-start;
+                    flex-wrap: wrap; 
+                    gap: 1rem; 
+                    width: 100%; 
+                    margin-bottom: 1rem;">
+            <MudText Typo="Typo.subtitle1" Style="color: #204c6f;">
+                <strong>Edificio:</strong> @_buildingName<br />
+                <strong>Piso:</strong> @_floorNum<br />
+                <strong>Espacio de aprendizaje:</strong> @_learningSpaceName
+            </MudText>
+
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <AuthorizeView Policy="View Audit">
+                    <Authorized>
+                        <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@OnViewLearningComponentAuditClicked">
+                        BITÁCORA
+                        </CustomButton>
+                    </Authorized>
+                 </AuthorizeView>
+
+                <AuthorizeView Policy="Create Components">
+                    <Authorized>
+                    <CustomButton ButtonType="add" OnClick="NavigateToAddComponent">
+                        Agregar
+                    </CustomButton>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+
+    <AuthorizeView Policy="List Components">
+    <Authorized>
+        @if (!_tableHasRendered) 
+        { 
+            <Spinner /> 
+        } 
+        else
+        {
+            <div class="table-container" style="overflow-x: auto; width: 100%;">
+                <ElegantSearchBar OnSearch="HandleSearch" Placeholder="Buscar componentes por ID u Orientación" />
+                <MudTable ServerData="ServerFetch"
+                          @ref="_table"
+                          Elevation="1"
+                          RowsPerPage="10"
+                          Hover="true"
+                          Bordered="true"
+                          Striped="true"
+                          Style="min-width: 650px; white-space: nowrap; table-layout: fixed; margin-top: 1rem;"
+                          FixedHeader="true"
+                          Dense="true"
+                          CustomHeader="true"
+                          Breakpoint="Breakpoint.None"
+                          HeaderClass="mud-table-sticky-header">
+                    <HeaderContent>
+                        <MudTh class="no-wrap"><span class="text-h3">ID</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Orientación</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Posición</span></MudTh>
+                        <MudTh class="no-wrap"><span class="text-h3">Dimensiones</span></MudTh>
+                    </HeaderContent>
+                    <RowTemplate Context="component">
+                        <MudTd Class="no-wrap text-body" DataLabel="ID" Style="width: 15%; min-width: 100px;">
+                            <AuthorizeView Policy="View Specific Component">
+                                 <Authorized Context="innerAuth">
+                                    <MudLink Href="@($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes/{component.ComponentId}")" Color="Color.Primary">
+                                        <MudText Color="Color.Primary" Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            @GetFormattedId(component)
+                                        </MudText>
+                                    </MudLink>
+                                </Authorized>
+                                <NotAuthorized Context="innerNoAuth">
+                                    <MudText Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        @GetFormattedId(component)
+                                    </MudText>
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        </MudTd>
+                        <MudTd Class="no-wrap text-body" DataLabel="Orientación" Style="width: 20%; min-width: 120px;">
+                            <div Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @TranslateOrientation(component.Orientation.Value)
+                            </div>
+                        </MudTd>
+                        <MudTd  Class="no-wrap text-body" DataLabel="Posición" Style="width: 30%; min-width: 150px;">
+                            <div Style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">
+                                @($"X: {component.Position.X:F2}\t Y: {component.Position.Y:F2}\t Z: {component.Position.Z:F2}")
+                            </div>
+                        </MudTd>
+                        <MudTd  Class="no-wrap text-body" DataLabel="Dimensiones" Style="width: 35%; min-width: 180px;">
+                            <div Style="white-space: pre; overflow: hidden; text-overflow: ellipsis;">
+                                @($"W: {component.Dimensions.Width:F2}\t L: {component.Dimensions.Length:F2}\t H: {component.Dimensions.Height:F2}")
+                            </div>
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Class="text-h3"> No hay elementos para mostrar. </MudText>
+                    </NoRecordsContent>
+                    <PagerContent>
+                        <TablePager/>
+                    </PagerContent>
+                </MudTable>
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="mt-4 text-center" style="color: gray;">
+            No tiene permisos para ver esta tabla.
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+    </div>
+</MudContainer>
+
+<style>
+    .table-container {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    }
+</style>
+
+@code {
+    /// <summary>
+    /// The name of the building where the learning space is located. 
+    /// Retrieved from the BuildingService and displayed in the UI.
+    /// </summary>
+    private string? _buildingName;
+
+    /// <summary>
+    /// The floor number where the learning space is located.
+    /// Retrieved from the FloorService and displayed in the UI.
+    /// </summary>
+    private int _floorNum;
+
+    /// <summary>
+    /// The name of the learning space where components are located.
+    /// Retrieved from the LearningSpaceService and displayed in the UI.
+    /// </summary>
+    private string? _learningSpaceName;
+
+    /// <summary>
+    /// The ID of the building Id from the route.
+    /// Used to retrieve components associated with that space.
+    /// </summary>
+    [Parameter] public int buildingId { get; set; }
+    /// <summary>
+    /// The ID of the learning space from the route.
+    /// Used to retrieve components associated with that space.
+    /// </summary>
+    [Parameter] public int learningSpaceId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the ID of the floor where the learning space is located.
+    /// </summary>
+    [Parameter] public int floorId { get; set; }
+
+    /// <summary>
+    /// The number of items displayed per page in the table.
+    /// </summary>
+    private int _pageSize;
+
+    /// <summary>
+    /// The current page index (zero-based) being displayed in the table.
+    /// </summary>
+    private int _pageIndex;
+
+    /// <summary>
+    /// The total number of items across all pages in the table.
+    /// </summary>
+    private int _totalItems;
+
+    /// <summary>
+    /// Reference to the MudTable component displaying the learning components.
+    /// </summary>
+    private MudTable<LearningComponent> _table = new();
+
+    /// <summary>
+    /// Flag indicating whether the table has completed its initial render.
+    /// Used to control the display of the loading indicator.
+    /// </summary>
+    private bool _tableHasRendered;
+
+    /// <summary>
+    /// The string to perform search operations on the table
+    /// </summary>
+    private string _stringSearch = string.Empty;
+
+    /// <summary>
+    /// Collection of learning components displayed in the table.
+    /// </summary>
+    private PaginatedList<LearningComponent>? _data;
+
+    private List<BreadcrumbItem> _items = new();
+
+    protected override void OnInitialized()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+        new BreadcrumbItem("Inicio", href: "/"),
+        new BreadcrumbItem("Edificios", href: "/edificios"),
+        new BreadcrumbItem("Pisos", href: $"/edificios/{buildingId}/pisos"),
+        new BreadcrumbItem("Espacios de Aprendizaje", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje"),
+        new BreadcrumbItem("Componentes", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/listar-componentes")
+        };
+    }
+
+    /// <summary>
+    /// Called when the component is initialized.
+    /// Fetches all learning components for the given learning space ID.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var building = await BuildingService.DisplayBuildingAsync(this.buildingId);
+        var floorList = await FloorService.GetFloorsListAsync(this.buildingId);
+        var currentFloor = floorList!.FirstOrDefault(f => f.FloorId == floorId);
+        var learningSpace = await LearningSpaceService.GetLearningSpaceAsync(this.learningSpaceId);
+
+        _buildingName = building!.Name!.Name;
+        _learningSpaceName = learningSpace!.Name!.Name;
+        _floorNum = currentFloor!.Number.Value;
+
+        _tableHasRendered = true;
+    }
+
+    /// <summary>
+    /// Fetches and processes data for the MudTable component, handling pagination and search functionality.
+    /// </summary>
+    /// <param name="state">The current state of the table including page number and size</param>
+    /// <param name="token">Cancellation token for the async operation</param>
+    /// <returns>TableData containing the paginated list of learning components</returns>
+    private async Task<TableData<LearningComponent>> ServerFetch(TableState state, CancellationToken token)
+    {
+        _pageIndex = state.Page;
+        _pageSize = state.PageSize;
+
+        _data = await LearningComponentService.GetLearningComponentsByIdAsync(learningSpaceId, _pageSize, _pageIndex, _stringSearch);
+        _totalItems = _data.TotalCount;
+
+        return new TableData<LearningComponent>() {TotalItems = _totalItems, Items = _data};
+    }
+
+    /// <summary>
+    /// Handles the search functionality by updating the search string and refreshing the table data.
+    /// </summary>
+    /// <param name="stringSearch">The search string entered by the user to filter components.</param>
+    private async Task HandleSearch(string stringSearch)
+    {
+        _stringSearch = stringSearch;
+        await _table.ReloadServerData();
+    }
+    
+    /// <summary>
+    /// Formats the component ID by prefixing it with a type-specific tag (e.g., PROJ or WB).
+    /// </summary>
+    /// <param name="component">The learning component object.</param>
+    /// <returns>A formatted ID string based on the component type.</returns>
+    private string GetFormattedId(LearningComponent component)
+    {
+        return component switch
+        {
+            Projector p => $"PROJ-{p.ComponentId}",
+            Whiteboard w => $"WB-{w.ComponentId}",
+            _ => component.ComponentId.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Dictionary used to translate orientation values from English to Spanish.
+    /// </summary>
+    private readonly Dictionary<string, string> OrientationTranslations = new()
+    {
+        { "North", "Norte" },
+        { "South", "Sur" },
+        { "East", "Este" },
+        { "West", "Oeste" }
+    };
+
+    /// <summary>
+    /// Translates the orientation string from English to Spanish.
+    /// </summary>
+    /// <param name="englishOrientation">Orientation in English (e.g., "North").</param>
+    /// <returns>The corresponding Spanish translation, or the original if not found.</returns>
+    private string TranslateOrientation(string englishOrientation)
+    {
+        return OrientationTranslations.TryGetValue(englishOrientation, out var spanish) ? spanish : englishOrientation;
+    }
+
+    /// <summary>
+    /// Navigates to the add component page for the current learning space.
+    /// </summary>
+    private void NavigateToAddComponent()
+    {
+        Navigation.NavigateTo($"/edificios/{@buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{@learningSpaceId}/listar-componentes/agregar-componente");
+    }
+
+    /// <summary>
+    /// (Possibly unused) List of component type names in Spanish.
+    /// Could be used for filtering or display.
+    /// </summary>
+    private List<string> states = new()
+    {
+        "Proyector", "Pizarra"
+    };
+
+    /// <summary>
+    /// Navigates to the view learning component audit page.
+    /// </summary>
+    private void OnViewLearningComponentAuditClicked()
+    {
+        Navigation.NavigateTo($"/edificios/{@buildingId}/pisos/{@floorId}/espacios-de-aprendizaje/{@learningSpaceId}/learning-component-audit");
+    }
+}
+

@@ -1,0 +1,28 @@
+
+<MudTablePager PageSizeOptions="@PageSizeOptions"
+               RowsPerPageString="@RowsPerPageString"
+               InfoFormat="@InfoFormat"
+               AllItemsText="@AllItemsText"
+               HorizontalAlignment="@HorizontalAlignment"
+               HideRowsPerPage="@HideRowsPerPage"
+               HidePageNumber="@HidePageNumber"
+               HidePagination="@HidePagination" />
+
+@code {
+    [Parameter]
+    public int[] PageSizeOptions { get; set; } = [5, 10, 15, 20];
+    [Parameter]
+    public HorizontalAlignment HorizontalAlignment { get; set; } = HorizontalAlignment.Right;
+    [Parameter]
+    public bool HidePageNumber { get; set; }
+    [Parameter]
+    public bool HidePagination { get; set; }
+    [Parameter]
+    public bool HideRowsPerPage { get; set; }
+    [Parameter]
+    public string RowsPerPageString { get; set; } = "Elementos por página:";
+    [Parameter]
+    public string InfoFormat { get; set; } = "{first_item}-{last_item} de {all_items}";
+    [Parameter]
+    public string AllItemsText { get; set; } = "Todos";
+}

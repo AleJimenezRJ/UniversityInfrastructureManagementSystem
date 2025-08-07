@@ -1,0 +1,8 @@
+﻿CREATE TABLE Staff (
+  PersonId INT NOT NULL,
+  StaffType CHAR(10) NOT NULL,
+  InstitutionalEmail NVARCHAR(100) UNIQUE NOT NULL,
+  PRIMARY KEY (PersonId),
+  FOREIGN KEY (PersonId) REFERENCES Person(Id) ON DELETE CASCADE,
+  CHECK (StaffType IN ('ADM', 'DOC', 'ADMDOC'))
+);

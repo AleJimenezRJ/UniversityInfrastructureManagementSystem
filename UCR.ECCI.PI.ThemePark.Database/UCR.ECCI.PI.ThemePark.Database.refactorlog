@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Operations Version="1.0" xmlns="http://schemas.microsoft.com/sqlserver/dac/Serialization/2012/02">
+  <Operation Name="Rename Refactor" Key="c6256266-a90b-4c4b-aa88-0bc4c6f1eb7d" ChangeDateTime="04/29/2025 20:11:19">
+    <Property Name="ElementName" Value="[dbo].[Building].[Ancho]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Building]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Lenght" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="f2ecf897-bae8-4d4e-9ffe-9f166c74744d" ChangeDateTime="04/29/2025 20:11:23">
+    <Property Name="ElementName" Value="[dbo].[Building].[Largo]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Building]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Width" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="22f2ec7e-75c2-4abf-810f-2cde814b3a2f" ChangeDateTime="04/29/2025 20:11:28">
+    <Property Name="ElementName" Value="[dbo].[Building].[Lenght]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Building]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Length" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="c9342810-aa37-486b-b26c-af1fd6a6519a" ChangeDateTime="04/29/2025 20:11:39">
+    <Property Name="ElementName" Value="[dbo].[Building].[Altura]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[dbo].[Building]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Height" />
+  </Operation>
+</Operations>

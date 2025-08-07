@@ -1,0 +1,121 @@
+﻿@inject NavigationManager NavigationManager
+@using MudBlazor
+
+<MudBreadcrumbs Items="_items">
+    <ItemTemplate Context="item">
+        <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+@code {
+    private List<BreadcrumbItem> _items = new();
+
+    [Parameter]
+    public bool isBuildingBreadcrumb { get; set; } = false;
+
+    [Parameter]
+    public string EntityName { get; set; } = ""; 
+
+    [Parameter]
+    public int? BuildingId { get; set; } = -1;
+
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+        if(isBuildingBreadcrumb)
+        {
+            BuildBreadcrumbs(NavigationManager.Uri, BuildingId);
+        }
+        else
+        {
+            BuildBreadcrumbsNoId(NavigationManager.Uri, EntityName);
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if(isBuildingBreadcrumb)
+        {
+            BuildBreadcrumbs(e.Location, BuildingId);
+        }
+        else
+        {
+            BuildBreadcrumbsNoId(e.Location, EntityName);
+        }
+        StateHasChanged();
+    }
+
+    private void BuildBreadcrumbs(string uri, int? BuildingId)
+    {
+        _items.Clear();
+        var baseUri = NavigationManager.BaseUri.TrimEnd('/');
+        var relativeUri = uri.Replace(baseUri, "").Trim('/');
+        var segments = relativeUri.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        _items.Add(new BreadcrumbItem("Inicio", href: "/"));
+
+        var path = "";
+        foreach (var segment in segments)
+        {
+            path += "/" + segment;
+
+            if (int.TryParse(segment, out _))
+            {
+                // Update last breadcrumb href with numeric segment if found.
+                if (_items.Count > 0)
+                {
+                    var lastItem = _items[_items.Count - 1];
+                    _items[_items.Count - 1] = new BreadcrumbItem(lastItem.Text, path);
+                }
+            }
+            else
+            {
+                var text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(segment.Replace("-", " "));
+                _items.Add(new BreadcrumbItem(text, href: path));
+            }
+        }
+    }
+
+    private void ConvertEntityNameWithSpaces(string EntityName)
+    {
+
+    }
+
+    private void BuildBreadcrumbsNoId(string uri, string EntityName)
+    {
+        _items.Clear();
+        var baseUri = NavigationManager.BaseUri.TrimEnd('/');
+        var relativeUri = uri.Replace(baseUri, "").Trim('/');
+        var segments = relativeUri.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        _items.Add(new BreadcrumbItem("Inicio", href: "/"));
+
+        var path = "";
+        foreach (var segment in segments)
+        {
+            path += "/" + segment;
+
+            var decodedSegment = Uri.UnescapeDataString(segment);
+
+            if (decodedSegment == EntityName)
+            {
+                // Update last breadcrumb href with the Name if necessary.
+                if (_items.Count > 0)
+                {
+                    var lastItem = _items[_items.Count - 1];
+                    _items[_items.Count - 1] = new BreadcrumbItem(lastItem.Text, path);
+                }
+            }
+            else
+            {
+                var text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(segment.Replace("-", " "));
+                _items.Add(new BreadcrumbItem(text, href: path));
+            }
+        }
+    }
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

@@ -1,0 +1,628 @@
+﻿@page "/add-user"
+
+@*
+AddUser.razor
+----------------
+This Blazor page allows administrators to add a new user to the system.
+It uses MudBlazor components for the UI and leverages value objects for domain validation.
+Fields include first name, last name, username, phone, identity number, birth date, email, and roles.
+On save, the form data is validated and sent to the IUserWithPersonService for persistence.
+NavigationManager is used for page redirection.
+*@
+
+@using System.Text.RegularExpressions
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Exceptions
+@using MudBlazor
+@using Microsoft.AspNetCore.Authorization
+
+@attribute [Authorize(Policy = "Create Users")]
+
+@inject IUserWithPersonService UserWithPersonService
+@inject NavigationManager NavManager
+@inject IRoleService RoleService
+@inject ISnackbar Snackbar
+
+<Header />
+
+<MudBreadcrumbs Items="_items">
+    <ItemTemplate Context="item">
+        @if (item.Disabled)
+        {
+            <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+        }
+        else
+        {
+            <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+        }
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+<h3 class="text-h1 mt-4 ms-3">Agregar Usuario</h3>
+<div style="padding-bottom: 150px;">
+    <MudPaper Class="mx-auto mt-4 px-6 py-4" Style="max-width: 1000px; border-radius: 8px;">
+
+        <MudGrid GutterSize="3">
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Nombre:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <MudTextField @bind-Value="FirstName"
+                                      Placeholder="ej. Juan"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      OnBlur="ValidateFirstNameFormat"
+                                      Error="@(!string.IsNullOrWhiteSpace(FirstNameError))"
+                                      ErrorText="@FirstNameError"
+                                      Style="width: 35%;" />
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Apellido:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <MudTextField @bind-Value="LastName"
+                                      Placeholder="ej. Ramírez"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      OnBlur="ValidateLastNameFormat"
+                                      Error="@(!string.IsNullOrWhiteSpace(LastNameError))"
+                                      ErrorText="@LastNameError"
+                                      Style="width: 35%;" />
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Número de identificación:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <MudTextField T="string"
+                                      @bind-Value="IdentityNumber1"
+                                      Placeholder="1-2345-6789"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      Pattern="\d-\d{4}-\d{4}"
+                                      OnBlur="ValidateIdentityNumberFormat"
+                                      Error="@(!string.IsNullOrWhiteSpace(IdentityNumberError))"
+                                      ErrorText="@IdentityNumberError"
+                                      Style="width: 35%;" />
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Fecha de nacimiento:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <div style="width: 35%;">
+                            <MudDatePicker @bind-Date="_birthDate"
+                                           Variant="Variant.Filled"
+                                           Dense="true"
+                                           MaxDate="@DateTime.Today"
+                                           OnClosed="ValidateBirthDate"
+                                           Error="@(!string.IsNullOrWhiteSpace(BirthDateError))"
+                                           ErrorText="@BirthDateError" />
+                        </div>
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12" class="my-6" />
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Teléfono:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <MudTextField T="string"
+                                      @bind-Value="Phone1"
+                                      Placeholder="1234-5678"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      Pattern="\d{4}-\d{4}"
+                                      OnBlur="ValidatePhoneFormat"
+                                      Error="@(!string.IsNullOrWhiteSpace(PhoneError))"
+                                      ErrorText="@PhoneError"
+                                      Style="width: 35%;" />
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Correo electrónico:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <MudTextField @bind-Value="Email1"
+                                      Placeholder="ej. juan@ejemplo.xyz"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      OnBlur="ValidateEmailFormat"
+                                      Error="@(!string.IsNullOrWhiteSpace(EmailError))"
+                                      ErrorText="@EmailError"
+                                      Style="width: 35%;" />
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12" class="my-6" />
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Nombre de usuario:</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <MudTextField @bind-Value="UserName1"
+                                      Placeholder="ej. juan.ramirez o juan_23"
+                                      Variant="Variant.Filled"
+                                      Dense="true"
+                                      OnBlur="ValidateUserNameFormat"
+                                      Error="@(!string.IsNullOrWhiteSpace(UserNameError))"
+                                      ErrorText="@UserNameError"
+                                      Style="width: 35%;" />
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudGrid>
+                    <MudItem xs="4" sm="3" Class="d-flex align-items-center">
+                        <MudText Class="text-h3 mb-2">Rol(es):</MudText>
+                    </MudItem>
+                    <MudItem xs="8" sm="9">
+                        <div style="display: flex; align-items: center; width: 35%;">
+                            <MudSelect T="string"
+                                       SelectedValues="SelectedRoles"
+                                       SelectedValuesChanged="OnSelectedRolesChanged"
+                                       Variant="Variant.Filled"
+                                       Dense="true"
+                                       MultiSelection="true"
+                                       Style="height: 40px; width: 35%;">
+                                @foreach (var role in AvailableRoles)
+                                {
+                                    <MudSelectItem T="string" Value="@role.Name">@role.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </div>
+                    </MudItem>
+                </MudGrid>
+            </MudItem>
+        </MudGrid>
+
+
+        @if (showError)
+        {
+            <MudItem xs="12" class="my-6" />
+            <MudAlert Severity="Severity.Error" Class="mx-auto" Style="max-width: 1000px;">
+                @errorMessage
+            </MudAlert>
+        }
+
+        <div class="d-flex justify-content-end align-items-center mt-4">
+
+            <div class="d-flex gap-2">
+                <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@OnCancelClicked">
+                    CANCELAR
+                </CustomButton>
+
+                <CustomButton ButtonType="add" Variant="Variant.Filled" OnClick="@OnSaveClicked">
+                    GUARDAR
+                </CustomButton>
+            </div>
+        </div>
+
+    </MudPaper>
+</div>
+
+
+@code {
+
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+
+    // List of selected roles for the new user
+    private List<string> SelectedRoles = new();
+    // Available roles to select from
+    private List<Role> AvailableRoles = new();
+
+    // User input fields
+    private string FirstName = string.Empty;
+    private string LastName = string.Empty;
+    private UserName UserName = null!;
+    private Phone Phone = null!;
+    private Email Email = null!;
+    private IdentityNumber IdentityNumber = null!;
+    private BirthDate BirthDate = null!;
+
+    // Raw string fields for value object creation
+    private string UserName1 = string.Empty;
+    private string Phone1 = string.Empty;
+    private string Email1 = string.Empty;
+    private string IdentityNumber1 = string.Empty;
+
+    private string SelectedRole = string.Empty;
+
+    // Birth date picker value
+    private DateTime? _birthDate = DateTime.Today;
+
+    private List<BreadcrumbItem> _items = new()
+    {
+        new BreadcrumbItem("INICIO", href: "/"),
+        new BreadcrumbItem("ADMINISTRACIÓN DE USUARIOS", href: "/user-management"),
+        new BreadcrumbItem("AGREGAR USUARIO", href: "/add-user")
+    };
+
+    private string? FirstNameError;
+    private string? LastNameError;
+    private string? UserNameError;
+    private string? PhoneError;
+    private string? EmailError;
+    private string? IdentityNumberError;
+    private string? BirthDateError;
+
+    private bool _firstNameRequired;
+    private bool _lastNameRequired;
+    private bool _userNameRequired;
+    private bool _phoneRequired;
+    private bool _emailRequired;
+    private bool _identityNumberRequired;
+    private bool _birthDateRequired;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AvailableRoles = await RoleService.GetAllRolesAsync();
+    }
+
+    /// <summary>
+    /// Handles the cancel button click, navigates back to user management.
+    /// </summary>
+    private void OnCancelClicked()
+    {
+        NavManager.NavigateTo("/user-management");
+    }
+
+
+    /// <summary>
+    /// Handles the save button click, creates a new user and persists it via the service.
+    /// </summary>
+    private async void OnSaveClicked()
+    {
+        ClearAllErrors();
+        ValidateAllFields();
+
+        if (!string.IsNullOrEmpty(FirstNameError) ||
+            !string.IsNullOrEmpty(LastNameError) ||
+            !string.IsNullOrEmpty(UserNameError) ||
+            !string.IsNullOrEmpty(PhoneError) ||
+            !string.IsNullOrEmpty(IdentityNumberError) ||
+            !string.IsNullOrEmpty(EmailError) ||
+            !string.IsNullOrEmpty(BirthDateError))
+        {
+            return;
+        }
+
+        try
+        {
+            var user = new UserWithPerson(
+                UserName.Create(UserName1),
+                FirstName,
+                LastName,
+                Email.Create(Email1),
+                Phone.Create(Phone1),
+                IdentityNumber.Create(IdentityNumber1),
+                BirthDate.Create(DateOnly.FromDateTime(_birthDate!.Value)),
+                new List<string>(SelectedRoles)
+            );
+
+            await UserWithPersonService.ValidateUserUniquenessAsync(user);
+
+            var success = await UserWithPersonService.CreateUserWithPersonAsync(user);
+
+            if (success)
+            {
+                showError = false;
+                NavManager.NavigateTo("/user-management");
+            }
+        }
+        catch (DuplicatedEntityException dupEx)
+        {
+            showError = true;
+            errorMessage = dupEx.Message;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = "Ocurrió un error al guardar el usuario";
+            Console.WriteLine($"Error inesperado: {ex}");
+            StateHasChanged();
+        }
+    }
+
+
+    /// <summary>
+    /// Handles changes to the selected roles in the UI.
+    /// </summary>
+    /// <param name="roles">The roles selected by the user.</param>
+    private void OnSelectedRolesChanged(IEnumerable<string> roles)
+    {
+        SelectedRoles = roles.ToList();
+    }
+
+
+    private void ValidateAllFields()
+    {
+        _firstNameRequired = true;
+        _lastNameRequired = true;
+        _userNameRequired = true;
+        _phoneRequired = true;
+        _identityNumberRequired = true;
+        _emailRequired = true;
+        _birthDateRequired = true;
+
+        ValidateFirstName();
+        ValidateLastName();
+        ValidateUserName();
+        ValidatePhone();
+        ValidateIdentityNumber();
+        ValidateEmail();
+        ValidateBirthDate();
+    }
+
+    /// <summary>
+    /// Validates the first name input format and sets the error message if invalid.
+    /// </summary>
+    private void ValidateFirstNameFormat()
+    {
+        if (_firstNameRequired && string.IsNullOrWhiteSpace(FirstName?.Trim()))
+        {
+            FirstNameError = "El nombre es obligatorio.";
+        }
+        else if (FirstName?.Trim().Length > 50)
+        {
+            FirstNameError = "El nombre debe tener como máximo 50 caracteres.";
+        }
+        else
+        {
+            FirstNameError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the last name input format and sets the error message if invalid.
+    /// </summary>
+    private void ValidateLastNameFormat()
+    {
+        if (_lastNameRequired && string.IsNullOrWhiteSpace(LastName))
+        {
+            LastNameError = "El apellido es obligatorio.";
+        }
+        else if (LastName?.Trim().Length > 50)
+        {
+            LastNameError = "El apellido debe tener como máximo 50 caracteres.";
+        }
+        else
+        {
+            LastNameError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the username input format and sets the error message if invalid.
+    /// </summary>
+    private void ValidateUserNameFormat()
+    {
+        if (_userNameRequired && string.IsNullOrWhiteSpace(UserName1))
+        {
+            UserNameError = "El nombre de usuario es obligatorio.";
+        }
+        else if (!Regex.IsMatch(UserName1, @"^[a-z0-9._]{1,50}$") && !string.IsNullOrWhiteSpace(UserName1))
+        {
+            UserNameError = "El nombre de usuario solo puede contener letras minúsculas, números, puntos o guiones bajos y debe tener como máximo 50 caracteres.";
+        }
+        else
+        {
+            UserNameError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the phone number input format and sets the error message if invalid.
+    /// </summary>
+    private void ValidatePhoneFormat()
+    {
+        if (_phoneRequired && string.IsNullOrWhiteSpace(Phone1))
+        {
+            PhoneError = "El teléfono es obligatorio.";
+        }
+        else if (!Regex.IsMatch(Phone1, @"^\d{4}-\d{4}$") && !string.IsNullOrWhiteSpace(Phone1))
+        {
+            PhoneError = "El teléfono debe tener el formato ####-####.";
+        }
+        else
+        {
+            PhoneError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the identity number input format and sets the error message if invalid.
+    /// </summary>
+    private void ValidateIdentityNumberFormat()
+    {
+        if (_identityNumberRequired && string.IsNullOrWhiteSpace(IdentityNumber1))
+        {
+            IdentityNumberError = "El número de identificación es obligatorio.";
+        }
+        else if (!Regex.IsMatch(IdentityNumber1, @"^\d-\d{4}-\d{4}$") && !string.IsNullOrWhiteSpace(IdentityNumber1))
+        {
+            IdentityNumberError = "El número de identificación debe tener el formato #-####-####.";
+        }
+        else
+        {
+            IdentityNumberError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the email input format and sets the error message if invalid.
+    /// </summary>
+    private void ValidateEmailFormat()
+    {
+        if (_emailRequired && string.IsNullOrWhiteSpace(Email1))
+        {
+            EmailError = "El correo electrónico es obligatorio.";
+        }
+        else if (!Regex.IsMatch(Email1, @"^[^@\s]+@[^@\s]+\.[^@\s]+$") && !string.IsNullOrWhiteSpace(Email1))
+        {
+            EmailError = "El correo electrónico no tiene un formato válido.";
+        }
+        else
+        {
+            EmailError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the birth date input and sets the error message if invalid.
+    /// </summary>
+    private void ValidateBirthDateFormat()
+    {
+        if (_birthDateRequired && !_birthDate.HasValue)
+        {
+            BirthDateError = "Debe ingresar una fecha de nacimiento válida.";
+        }
+        else
+        {
+            BirthDateError = null;
+        }
+    }
+
+    /// <summary>
+    /// Validates the first name input for required and length constraints.
+    /// </summary>
+    private void ValidateFirstName()
+    {
+        if (_firstNameRequired && string.IsNullOrWhiteSpace(FirstName?.Trim()))
+        {
+            FirstNameError = "El nombre es obligatorio.";
+        }
+        else if (FirstName?.Trim().Length > 50)
+        {
+            FirstNameError = "El nombre debe tener como máximo 50 caracteres.";
+        }
+    }
+
+    /// <summary>
+    /// Validates the last name input for required and length constraints.
+    /// </summary>
+    private void ValidateLastName()
+    {
+        if (_lastNameRequired && string.IsNullOrWhiteSpace(LastName))
+        {
+            LastNameError = "El apellido es obligatorio.";
+        }
+        else if (LastName?.Trim().Length > 50)
+        {
+            LastNameError = "El apellido debe tener como máximo 50 caracteres.";
+        }
+    }
+
+    /// <summary>
+    /// Validates the username input for required and format constraints.
+    /// </summary>
+    private void ValidateUserName()
+    {
+        if (_userNameRequired && string.IsNullOrWhiteSpace(UserName1))
+        {
+            UserNameError = "El nombre de usuario es obligatorio.";
+        }
+        else if (!Regex.IsMatch(UserName1, @"^[a-z0-9._]{1,50}$") && !string.IsNullOrWhiteSpace(UserName1))
+        {
+            UserNameError = "El nombre de usuario solo puede contener letras minúsculas, números, puntos o guiones bajos y debe tener como máximo 50 caracteres.";
+        }
+    }
+
+    /// <summary>
+    /// Validates the phone number input for required and format constraints.
+    /// </summary>
+    private void ValidatePhone()
+    {
+        if (_phoneRequired && string.IsNullOrWhiteSpace(Phone1))
+        {
+            PhoneError = "El teléfono es obligatorio.";
+        }
+        else if (!Regex.IsMatch(Phone1, @"^\d{4}-\d{4}$") && !string.IsNullOrWhiteSpace(Phone1))
+        {
+            PhoneError = "El teléfono debe tener el formato ####-####.";
+        }
+    }
+
+    /// <summary>
+    /// Validates the identity number input for required and format constraints.
+    /// </summary>
+    private void ValidateIdentityNumber()
+    {
+        if (_identityNumberRequired && string.IsNullOrWhiteSpace(IdentityNumber1))
+        {
+            IdentityNumberError = "El número de identificación es obligatorio.";
+        }
+        else if (!Regex.IsMatch(IdentityNumber1, @"^\d-\d{4}-\d{4}$") && !string.IsNullOrWhiteSpace(IdentityNumber1))
+        {
+            IdentityNumberError = "El número de identificación debe tener el formato #-####-####.";
+        }
+    }
+
+    /// <summary>
+    /// Validates the email input for required and format constraints.
+    /// </summary>
+    private void ValidateEmail()
+    {
+        if (_emailRequired && string.IsNullOrWhiteSpace(Email1))
+        {
+            EmailError = "El correo electrónico es obligatorio.";
+        }
+        else if (!Regex.IsMatch(Email1, @"^[^@\s]+@[^@\s]+\.[^@\s]+$") && !string.IsNullOrWhiteSpace(Email1))
+        {
+            EmailError = "El correo electrónico no tiene un formato válido.";
+        }
+    }
+
+    /// <summary>
+    /// Validates the birth date input for required constraint.
+    /// </summary>
+    private void ValidateBirthDate()
+    {
+        if (_birthDateRequired && !_birthDate.HasValue)
+        {
+            BirthDateError = "Debe ingresar una fecha de nacimiento válida.";
+        }
+    }
+
+    /// <summary>
+    /// Clears all error messages and resets error-related UI state.
+    /// </summary>
+    private void ClearAllErrors()
+    {
+        UserNameError = null;
+        EmailError = null;
+        IdentityNumberError = null;
+    }
+}

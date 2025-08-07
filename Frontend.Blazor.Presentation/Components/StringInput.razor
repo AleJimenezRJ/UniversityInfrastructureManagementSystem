@@ -1,0 +1,33 @@
+﻿@* StringInput.razor *@
+<MudItem xs="@Xs" sm="@Sm">
+    <MudText Typo="Typo.subtitle1" Class="mb-2" Style="color: #2c5f7c; font-weight: 500;">
+        @Label
+    </MudText>
+    <MudTextField @bind-Value="InternalValue"
+                  Variant="Variant.Outlined"
+                  Style="background: white;"
+                  FullWidth="true"
+                  ReadOnly="@ReadOnly" />
+</MudItem>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public int Xs { get; set; } = 12;
+    [Parameter] public int Sm { get; set; } = 4;
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private string? InternalValue
+    {
+        get => Value;
+        set
+        {
+            if (Value != value)
+            {
+                Value = value;
+                ValueChanged.InvokeAsync(value);
+            }
+        }
+    }
+}

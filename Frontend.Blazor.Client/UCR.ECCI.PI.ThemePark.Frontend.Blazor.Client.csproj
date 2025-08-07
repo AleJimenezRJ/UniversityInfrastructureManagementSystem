@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+    <StaticWebAssetProjectMode>Default</StaticWebAssetProjectMode>
+    <UserSecretsId>d3d95453-dcfc-49bf-8c77-354cad42c2fc</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="9.0.6" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.6" />
+	<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.6" />
+	<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.6" />
+    <PackageReference Include="MudBlazor" Version="8.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Frontend.Blazor.DependencyInjection\UCR.ECCI.PI.ThemePark.Frontend.Blazor.DependencyInjection.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.Domain\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.Infrastructure\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.csproj" />
+    <ProjectReference Include="..\Frontend.Blazor.Presentation\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Pages\" />
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
+</Project>

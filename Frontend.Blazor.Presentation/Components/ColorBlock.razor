@@ -1,0 +1,30 @@
+﻿@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Helpers
+
+<div style="display: flex; align-items: center; gap: 0.75rem;">
+    <div style="width: 64px; height: 32px; border-radius: 6px; border: 1px solid #ccc; background: @BlockColor;"></div>
+    @if (!HideLabel)
+    {
+        <MudText Class="text-body">@BlockLabel</MudText>
+    }
+</div>
+
+@code {
+    [Parameter] public string? ColorName { get; set; }
+    [Parameter] public bool HideLabel { get; set; } = false;
+
+    /// <summary>
+    /// Sets the background color of the block based on the ColorName parameter.
+    /// </summary>
+    private string BlockColor =>
+        !string.IsNullOrWhiteSpace(ColorName)
+            ? ColorTranslator.Translate(ColorName, "hex")
+            : "#FFFFFF";
+
+    /// <summary>
+    /// Internal label for the color block, translated to Spanish if available.
+    /// </summary>
+    private string BlockLabel =>
+        !string.IsNullOrWhiteSpace(ColorName)
+            ? ColorTranslator.Translate(ColorName, "spanish")
+            : string.Empty;
+}

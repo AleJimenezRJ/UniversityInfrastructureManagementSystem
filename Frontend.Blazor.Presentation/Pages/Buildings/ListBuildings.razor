@@ -1,0 +1,227 @@
+@page "/edificios"
+
+@* Using directives for required namespaces *@
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+
+@attribute [Authorize]
+
+@* Dependency injection for building service, navigation, and permission context *@
+@inject IBuildingsServices BuildingsRepository
+@inject NavigationManager NavigationManager
+@inject IPermissionContext PermissionContext
+
+@*
+    ListBuildings.razor
+    -----------------
+    This Blazor page displays a list of buildings with their details such as name, coordinates, dimensions, color, and number of floors.
+    It allows users to navigate to building details or add new buildings if they have the necessary permissions.
+*@
+@* Breadcrumbs for navigation context *@
+<CleanBreadcrumbs isBuildingBreadcrumb="true" />
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+    <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+        <PageTitle>Administración de Edificios</PageTitle>
+
+        <div style="display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            width: 100%;
+            margin-bottom: 1rem;">
+            <h1 class="text-h1" style="margin: 0;">Administración de Edificios</h1>
+            
+            <div class="d-flex gap-2">
+                <div class="cancel-wrapper">
+                    <AuthorizeView Policy="View Audit">
+                        <Authorized>
+                            <CustomButton ButtonType="cancel"
+                                          Variant="Variant.Outlined"
+                                          OnClick="@GoToBuildingLog">
+                                BITÁCORA
+                            </CustomButton>
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+
+                <AuthorizeView Policy="Create Buildings">
+                    <Authorized>
+                        <CustomButton ButtonType="add"
+                                      Variant="Variant.Filled"
+                                      OnClick="@GoToAddBuilding">
+                            AGREGAR
+                        </CustomButton>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+
+        <ElegantSearchBar OnSearch="HandleSearch" Placeholder="Nombre edificio, Area, Coordenadas..." />
+
+        @if (_loading)
+        {
+            <Spinner />
+        }
+        else if (_error != null)
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        else
+        {
+            <div class="table-container" style="overflow-x: auto; width: 100%;">
+                <MudTable T="Building"
+                          ServerData="LoadBuildings"
+                          Hover="true"
+                          Bordered="true"
+                          Striped="true"
+                          Elevation="1"
+                          Dense="true"
+                          RowsPerPage="10"
+                          Style="min-width: 650px; white-space: nowrap; table-layout: fixed;"
+                          Breakpoint="Breakpoint.None"
+                          CustomHeader="true"
+                          Class="mt-4"
+                          @ref="table"
+                          HeaderClass="mud-table-sticky-header">
+                    <HeaderContent>
+                        <MudTh><span class="text-h3">Edificio</span></MudTh>
+                        <MudTh><span class="text-h3">Coordenadas</span></MudTh>
+                        <MudTh><span class="text-h3">Dimensiones</span></MudTh>
+                        <MudTh><span class="text-h3">Color</span></MudTh>
+                        <MudTh><span class="text-h3">Pisos</span></MudTh>
+                    </HeaderContent>
+
+                    <RowTemplate Context="b">
+                        <MudTd Class="no-wrap text-link-blue">
+                            <MudLink Href="@($"/edificios/mostrar-edificio/{b.BuildingInternalId}")">@b.Name?.Name</MudLink> 
+                        </MudTd>
+                        <MudTd Class="no-wrap text-body">@($"{b.BuildingCoordinates?.X}, {b.BuildingCoordinates?.Y}, {b.BuildingCoordinates?.Z}")</MudTd>
+                        <MudTd Class="no-wrap text-body">@($"{b.Dimensions?.Width} x {b.Dimensions?.Length} x {b.Dimensions?.Height}")</MudTd>
+
+                        <MudTd Class="no-wrap text-body">@Helpers.ColorTranslator.Translate(b.Color?.Value ?? "defaultColor", "spanish")</MudTd>
+
+                        <MudTd Class="no-wrap text-link-"><MudLink Href="@($"/edificios/{b.BuildingInternalId}/pisos")">Ver</MudLink></MudTd>
+                    </RowTemplate>
+
+                    <NoRecordsContent>
+                        <MudText Class="text-h3"> No hay elementos para mostrar </MudText>
+                    </NoRecordsContent>
+
+                    <PagerContent>
+                        <TablePager />
+                    </PagerContent>
+                </MudTable>
+            </div>
+
+
+        }
+    </div>
+</MudContainer>
+
+<style>
+    .table-container {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+</style>
+
+@code {
+    // Reference to the MudTable component
+    private MudTable<Building>? table;
+    private string _searchText = string.Empty;
+
+
+    // Flags and states for loading, initialization, and errors
+    private bool _loading;
+    private bool _tableInitialized;
+    private string? _error;
+    private int _totalItems;
+
+    /// <summary>
+    /// Loads a paginated list of buildings from the backend service.
+    /// Handles loading and error states.
+    /// </summary>
+    private async Task<TableData<Building>> LoadBuildings(TableState state, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pageIndex = state.Page;
+            var pageSize = state.PageSize;
+
+            var result = await BuildingsRepository.GetBuildingsListPaginatedAsync(pageSize, pageIndex, _searchText);
+
+            _totalItems = result.TotalCount;
+
+            return new TableData<Building>
+            {
+                TotalItems = _totalItems,
+                Items = result
+            };
+        }
+        catch (Exception ex)
+        {
+            _error = $"Error al cargar edificios: {ex.Message}";
+            return new TableData<Building>
+            {
+                TotalItems = 0,
+                Items = new List<Building>()
+            };
+        }
+    }
+
+    /// <summary>
+    /// Preloads the first page of building data by manually triggering the server-side data fetch.
+    /// This method is used to ensure data is loaded before the table is rendered,
+    /// typically to support showing a loading spinner during the initial load phase.
+    /// </summary>
+    /// <returns>A task representing the asynchronous preload operation.</returns>
+    private async Task PreloadFirstPage()
+    {
+        var dummyState = new TableState
+        {
+            Page = 0,
+            PageSize = 10
+        };
+
+        await LoadBuildings(dummyState, new CancellationToken());
+        _loading = false;
+    }
+
+    /// <summary>
+    /// Invoked when the component is initialized.
+    /// Calls to load the list of buildings
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        await PreloadFirstPage();
+    }
+
+    /// <summary>
+    /// Navigates to the building creation page.
+    /// </summary>
+    private void GoToAddBuilding()
+    {
+        NavigationManager.NavigateTo("/edificios/agregar-edificio");
+    }
+
+    /// <summary>
+    /// Navigates to the building log (bitácora) page.
+    /// </summary>
+    private void GoToBuildingLog()
+    {
+        NavigationManager.NavigateTo("/historial-edificios");
+    }
+
+    private async Task HandleSearch(string searchText)
+    {
+        _searchText = searchText;
+        await table!.ReloadServerData();
+    }
+}

@@ -1,0 +1,471 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using System.Globalization
+@inject ILearningComponentServices LearningComponentService
+@inject ILearningSpaceServices LearningSpaceServices
+<div class="component-map-container" style="width: 50%; max-width: 50%; margin: 0 auto; margin-top: 5px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+    <svg @ref="svgElement"
+    width="100%"
+    height="100%"
+    svg viewBox="0 0 @svgWidth.ToString("F2", CultureInfo.InvariantCulture) @svgHeight.ToString("F2", CultureInfo.InvariantCulture)"
+    @onmouseup="OnMouseUp"
+    @onmousemove="OnMouseMove"
+    @onmouseleave="OnMouseUp">
+
+        @{
+            var gridSpacingX = Math.Max(20, svgWidth / 20);
+            var gridSpacingY = Math.Max(20, svgHeight / 20);
+            int linesX = (int)Math.Ceiling(svgWidth / gridSpacingX);
+            int linesY = (int)Math.Ceiling(svgHeight / gridSpacingY);
+        }
+
+        @for (int j = 0; j <= linesY; j++)
+        {
+            double i = j * gridSpacingY;
+            <line x1="0" y1="@i.ToString("F2", CultureInfo.InvariantCulture)" x2="@svgWidth.ToString("F2", CultureInfo.InvariantCulture)" y2="@i.ToString("F2", CultureInfo.InvariantCulture)" stroke="#f0f0f0" stroke-width="1" />
+        }
+        @for (int j = 0; j <= linesX; j++)
+        {
+            double i = j * gridSpacingX;
+            <line x1="@i.ToString("F2", CultureInfo.InvariantCulture)" y1="0" x2="@i.ToString("F2", CultureInfo.InvariantCulture)" y2="@svgHeight.ToString("F2", CultureInfo.InvariantCulture)" stroke="#f0f0f0" stroke-width="1" />
+        }
+
+
+
+        @* Other components (non-manipulable) *@
+        @foreach (var comp in otherComponents)
+        {
+            <rect x="@GetScaledValue(comp.Position.X)"
+            y="@GetScaledValue(comp.Position.Y)"
+            width="@GetScaledDimension(comp.Dimensions.Width, 100)"
+            height="@GetScaledDimension(comp.Dimensions.Length, 50)"
+            fill="#e0e0e0"
+            stroke="#808080"
+            stroke-width="1"
+            stroke-dasharray="4"
+            opacity="0.7" />
+        }
+
+        @* Current component (rectangle) *@
+        <rect x="@GetScaledValue(x)"
+        y="@GetScaledValue(y)"
+        width="@GetScaledDimension(width, 100)"
+        height="@GetScaledDimension(length, 50)"
+        fill="lightblue"
+        stroke="black"
+        stroke-width="1"
+        cursor="move"
+        @onmousedown="StartDrag" @onmousedown:preventDefault @onmousedown:stopPropagation />
+
+        @* Control point for resizing *@
+        <circle cx="@(GetScaledValue(x) + GetScaledDimension(width, 100))"
+        cy="@(GetScaledValue(y) + GetScaledDimension(length, 50))"
+        r="5"
+        fill="red"
+        cursor="nwse-resize"
+        @onmousedown="StartResize" @onmousedown:preventDefault @onmousedown:stopPropagation />
+    </svg>
+</div>
+
+@code {
+    [Parameter] public double? x { get; set; }
+    [Parameter] public double? y { get; set; }
+    [Parameter] public double? width { get; set; }
+    [Parameter] public double? length { get; set; }
+    [Parameter] public int? ComponentId { get; set; }
+    [Parameter] public int? LearningSpaceId { get; set; }
+
+    [Parameter] public EventCallback<double?> XChanged { get; set; }
+    [Parameter] public EventCallback<double?> YChanged { get; set; }
+    [Parameter] public EventCallback<double?> WidthChanged { get; set; }
+    [Parameter] public EventCallback<double?> LengthChanged { get; set; }
+    [Parameter] public EventCallback<string> OnCollision { get; set; }
+
+    private List<LearningComponent> otherComponents = new();
+    private const double MinSizePx = 0.01;
+    private const double PositionThreshold = 0.001;
+    private double _scaleFactor = 52;
+    private const double IdealSvgWidth = 500;
+    private const double IdealSvgHeight = 500;
+    private ElementReference svgElement;
+    private double svgWidth = 500;
+    private double svgHeight = 500;
+    private bool isDragging = false;
+    private bool isResizing = false;
+    private double dragStartX;
+    private double dragStartY;
+    private double componentStartX;
+    private double componentStartY;
+    private bool pendingChanges = false;
+
+    /// <summary>
+    /// Minimum size in model units
+    /// </summary>
+    private const double MinModelSize = 0.01;
+
+    /// <summary>
+    /// Scales a value from model units to pixel units
+    /// </summary>
+    /// <param name="value">The value to scale in model units</param>
+    /// <param name="defaultValue">Default value to use if value is null</param>
+    /// <returns>The scaled value in pixels (rounded)</returns>
+    private double GetScaledValue(double? value, double defaultValue = 0)
+    {
+        return Math.Round((value ?? defaultValue) * _scaleFactor);
+    }
+
+
+    /// <summary>
+    /// Scales a dimension from model units to pixel units with minimum size constraint
+    /// </summary>
+    /// <param name="value">The dimension value to scale in model units</param>
+    /// <param name="defaultValue">Default value to use if value is null</param>
+    /// <returns>The scaled dimension in pixels (with minimum size enforced)</returns>
+    private double GetScaledDimension(double? value, double defaultValue)
+    {
+        return Math.Max(MinSizePx, Math.Round((value ?? defaultValue) * _scaleFactor));
+    }
+
+    /// <summary>
+    /// Converts a pixel value back to model units
+    /// </summary>
+    /// <param name="scaledValue">The value in pixels to convert</param>
+    /// <param name="isSize">Whether the value represents a size/dimension</param>
+    /// <returns>The value in model units</returns>
+    private double GetModelValue(double scaledValue, bool isSize = false)
+    {
+        double value = Math.Round(scaledValue / _scaleFactor, 3);
+        if (isSize)
+        {
+            return Math.Max(MinModelSize, value);
+        }
+        return value;
+    }
+
+    /// <summary>
+    /// Public method to verify collisions from parent components
+    /// </summary>
+    /// <param name="newX">New X position to check</param>
+    /// <param name="newY">New Y position to check </param>
+    /// <param name="newWidth">New width to check</param>
+    /// <param name="newLength">New length to check </param>
+    /// <returns>True if no collision is detected, false otherwise</returns>
+    public bool ValidateNoCollision(double? newX = null, double? newY = null, double? newWidth = null, double? newLength = null)
+    {
+        double testX = GetScaledValue(newX ?? x);
+        double testY = GetScaledValue(newY ?? y);
+        double testWidth = GetScaledDimension(newWidth ?? width, 100);
+        double testLength = GetScaledDimension(newLength ?? length, 50);
+
+        if (CheckCollision(testX, testY, testWidth, testLength))
+        {
+            OnCollision.InvokeAsync("El componente no puedo sobreponerse a otros componentes.");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Initializes the component by measuring SVG size and loading other components
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await MeasureSvgSizeAsync();
+        if (LearningSpaceId.HasValue)
+        {
+            await LoadOtherComponents();
+        }
+    }
+
+    /// <summary>
+    /// Loads other components in the learning space except the current one
+    /// </summary>
+    private async Task LoadOtherComponents()
+    {
+        if (!LearningSpaceId.HasValue) return;
+
+        var allComponents = await LearningComponentService.GetLearningComponentsByIdAsync(LearningSpaceId.Value,20,0, "");
+        otherComponents = allComponents
+            .Where(c => !ComponentId.HasValue || c.ComponentId != ComponentId.Value)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Handles pending changes after rendering is complete
+    /// </summary>
+    /// <param name="firstRender">Whether this is the first render</param>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pendingChanges)
+        {
+            pendingChanges = false;
+            await NotifyChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Validates component bounds when parameters are set and checks for collisions
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        // Ensure SVG dimensions are loaded BEFORE validating bounds
+        if (svgWidth == 500 && svgHeight == 500 && LearningSpaceId.HasValue)
+        {
+            await MeasureSvgSizeAsync();
+        }
+
+        bool changed = EnsureComponentWithinBounds();
+
+        if (!CheckCollision(GetScaledValue(x), GetScaledValue(y),
+                           GetScaledDimension(width, 100), GetScaledDimension(length, 50)))
+        {
+            if (changed)
+            {
+                pendingChanges = true;
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            await OnCollision.InvokeAsync("El componente no puede sobreponerse a otros componentes.");
+        }
+    }
+
+    /// <summary>
+	/// Calculates the scale factor based on the learning space dimensions
+	/// </summary>
+	/// <param name="spaceWidth"></param>
+	/// <param name="spaceLength"></param>
+	/// <returns></returns>
+	private double CalculateScaleFactor(double spaceWidth, double spaceLength)
+    {
+        double scaleByWidth = IdealSvgWidth / spaceWidth;
+        double scaleByHeight = IdealSvgHeight / spaceLength;
+
+		// Pick the smaller scale factor to ensure the component fits within the SVG
+        return Math.Min(scaleByWidth, scaleByHeight);
+    }
+
+    /// <summary>
+    /// Measures the SVG container size based on learning space dimensions
+    /// </summary>
+    private async Task MeasureSvgSizeAsync()
+    {
+        if (!LearningSpaceId.HasValue) return;
+
+        var learningSpace = await LearningSpaceServices.GetLearningSpaceAsync(LearningSpaceId.Value);
+        if (learningSpace?.Width?.Value != null && learningSpace?.Length?.Value != null)
+        {
+			// calculate the scale factor based on the learning space dimensions
+            _scaleFactor = CalculateScaleFactor(learningSpace.Width.Value, learningSpace.Length.Value);
+
+            // calculate the SVG dimensions based on the scale factor
+            svgWidth = learningSpace.Width.Value * _scaleFactor;
+            svgHeight = learningSpace.Length.Value * _scaleFactor;
+            EnsureComponentWithinBounds();
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Ensures the component stays within the SVG boundaries
+    /// </summary>
+    /// <returns>True if any component property was changed, false otherwise</returns>
+    private bool EnsureComponentWithinBounds()
+    {
+        bool changed = false;
+        double currentX = GetScaledValue(x);
+        double currentY = GetScaledValue(y);
+        double currentWidth = GetScaledDimension(width, 100);
+        double currentLength = GetScaledDimension(length, 50);
+
+        // Adjust X position
+        if (currentX < 0)
+        {
+            x = 0;
+            changed = true;
+        }
+        else if (currentX + currentWidth > svgWidth)
+        {
+            x = GetModelValue(svgWidth - currentWidth);
+            changed = true;
+        }
+
+        // Adjust Y position
+        if (currentY < 0)
+        {
+            y = 0;
+            changed = true;
+        }
+        else if (currentY + currentLength > svgHeight)
+        {
+            y = GetModelValue(svgHeight - currentLength);
+            changed = true;
+        }
+
+        // Adjust dimensions if they exceed available space
+        double maxSvgWidth = svgWidth - GetScaledValue(x);
+        if (currentWidth > maxSvgWidth)
+        {
+            width = GetModelValue(maxSvgWidth);
+            changed = true;
+        }
+
+        double maxSvgLength = svgHeight - GetScaledValue(y);
+        if (currentLength > maxSvgLength)
+        {
+            length = GetModelValue(maxSvgLength);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Checks if the component with given coordinates and dimensions collides with other components
+    /// </summary>
+    /// <param name="testX">X coordinate to test</param>
+    /// <param name="testY">Y coordinate to test</param>
+    /// <param name="testWidth">Width to test</param>
+    /// <param name="testLength">Length to test</param>
+    /// <returns>True if a collision is detected, false otherwise</returns>
+    private bool CheckCollision(double testX, double testY, double testWidth, double testLength)
+    {
+        if (!otherComponents.Any()) return false;
+
+        foreach (var comp in otherComponents)
+        {
+            double compX = GetScaledValue(comp.Position.X);
+            double compY = GetScaledValue(comp.Position.Y);
+            double compWidth = GetScaledDimension(comp.Dimensions.Width, 100);
+            double compLength = GetScaledDimension(comp.Dimensions.Length, 50);
+
+            // Rectangle collision detection algorithm
+            if (testX < compX + compWidth &&
+                testX + testWidth > compX &&
+                testY < compY + compLength &&
+                testY + testLength > compY)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Notifies parent components of changes to position and dimensions
+    /// </summary>
+    private async Task NotifyChangesAsync()
+    {
+        await XChanged.InvokeAsync(x);
+        await YChanged.InvokeAsync(y);
+        await WidthChanged.InvokeAsync(width);
+        await LengthChanged.InvokeAsync(length);
+    }
+
+    /// <summary>
+    /// Initiates component dragging operation
+    /// </summary>
+    /// <param name="e">Mouse event arguments</param>
+    private void StartDrag(MouseEventArgs e)
+    {
+        isDragging = true;
+
+        // Save initial mouse position
+        dragStartX = e.OffsetX;
+        dragStartY = e.OffsetY;
+
+        // Save initial component position
+        componentStartX = GetScaledValue(x);
+        componentStartY = GetScaledValue(y);
+    }
+
+    /// <summary>
+    /// Initiates component resizing operation
+    /// </summary>
+    /// <param name="e">Mouse event arguments</param>
+    private void StartResize(MouseEventArgs e)
+    {
+        isResizing = true;
+    }
+
+    /// <summary>
+    /// Handles mouse movement for dragging and resizing operations
+    /// </summary>
+    /// <param name="e">Mouse event arguments</param>
+    private async Task OnMouseMove(MouseEventArgs e)
+    {
+        if (isDragging)
+        {
+            // Calculate mouse displacement from drag start
+            double deltaX = e.OffsetX - dragStartX;
+            double deltaY = e.OffsetY - dragStartY;
+
+            // Apply displacement to the initial component position
+            double newSvgX = componentStartX + deltaX;
+            double newSvgY = componentStartY + deltaY;
+
+            // Limit to SVG borders
+            newSvgX = Math.Max(0, Math.Min(svgWidth - GetScaledDimension(width, 100), newSvgX));
+            newSvgY = Math.Max(0, Math.Min(svgHeight - GetScaledDimension(length, 50), newSvgY));
+
+            if (!CheckCollision(newSvgX, newSvgY, GetScaledDimension(width, 100), GetScaledDimension(length, 50)))
+            {
+                double newX = GetModelValue(newSvgX);
+                double newY = GetModelValue(newSvgY);
+
+                if (Math.Abs(newX - (x ?? 0)) > PositionThreshold || Math.Abs(newY - (y ?? 0)) > PositionThreshold)
+                {
+                    x = newX;
+                    y = newY;
+                    await XChanged.InvokeAsync(x);
+                    await YChanged.InvokeAsync(y);
+                    StateHasChanged();
+                }
+            }
+        }
+
+        if (isResizing)
+        {
+            // Improve resize calculations
+            double currentX = GetScaledValue(x);
+            double currentY = GetScaledValue(y);
+
+            double newSvgWidth = Math.Max(MinSizePx, e.OffsetX - currentX);
+            double newSvgLength = Math.Max(MinSizePx, e.OffsetY - currentY);
+
+            // Limit to available space
+            newSvgWidth = Math.Min(newSvgWidth, svgWidth - currentX);
+            newSvgLength = Math.Min(newSvgLength, svgHeight - currentY);
+
+            if (!CheckCollision(currentX, currentY, newSvgWidth, newSvgLength))
+            {
+                double newWidth = GetModelValue(newSvgWidth, true);
+                double newLength = GetModelValue(newSvgLength, true);
+
+                if (Math.Abs(newWidth - (width ?? 0)) > PositionThreshold ||
+                    Math.Abs(newLength - (length ?? 0)) > PositionThreshold)
+                {
+                    width = newWidth;
+                    length = newLength;
+                    await WidthChanged.InvokeAsync(width);
+                    await LengthChanged.InvokeAsync(length);
+                    StateHasChanged();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles mouse up event to end dragging and resizing operations
+    /// </summary>
+    /// <param name="e">Mouse event arguments</param>
+    private void OnMouseUp(MouseEventArgs e)
+    {
+        isDragging = false;
+        isResizing = false;
+    }
+}

@@ -1,0 +1,8 @@
+﻿@* TitleLabel.razor *@
+<MudItem xs="8">
+    <MudText Class="text-h3">@Label:</MudText>
+</MudItem>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+}

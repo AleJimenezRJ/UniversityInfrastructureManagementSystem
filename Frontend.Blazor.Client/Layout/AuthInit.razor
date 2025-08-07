@@ -1,0 +1,75 @@
+﻿@page "/auth-init"
+
+@using System.Text.RegularExpressions
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using System.Text.Json
+
+
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthProvider
+@inject IJSRuntime JS
+@inject IUserWithPersonService UserWithPersonService
+
+@* This page is used to initialize the authentication process.
+   It checks the user's claims, creates a user entity if necessary,
+   retrieves user roles, and loads permissions based on those roles.
+   If any step fails, it redirects to the logout page. *@
+
+<p style="text-align:center; margin-top: 3rem;">Validando acceso...</p>
+
+@code {
+
+    /// <summary>
+    /// This method is called after the component has rendered.
+    /// Validates wether a user is authenticated and has the required claims.
+    /// </summary>
+    /// <param name="firstRender"></param>
+    /// <returns></returns>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        // Check if the user is authenticated
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            RedirectToLogout();
+            return;
+        }
+
+        var permissions = user.FindFirst("extension_Permissions")?.Value;
+
+        if (string.IsNullOrWhiteSpace(permissions))
+        {
+            RedirectToLogout();
+            return;
+        }
+
+        RedirectToHome();
+    }
+
+    /// <summary>
+    /// Redirects the user to the home page after successful authentication and initialization.
+    /// </summary>
+    /// <returns></returns>
+    private void RedirectToHome()
+    {
+        Nav.NavigateTo("/");
+    }
+
+    /// <summary>
+    /// Redirects the user to the logout page.
+    /// </summary>
+    /// <returns></returns>
+    private void RedirectToLogout()
+    {
+        Nav.NavigateTo("/auth-error");
+    }
+}

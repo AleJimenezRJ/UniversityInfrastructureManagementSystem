@@ -1,0 +1,480 @@
+﻿﻿@*
+    ReadLearningSpace.razor
+    -----------------------
+    This Blazor page displays detailed information about a selected learning space,
+    including its building, floor, and physical characteristics.
+    It uses MudBlazor components for UI layout and styling.
+    The learning space data is loaded based on the provided route parameters.
+    The page provides "Delete" and "Edit" buttons for management actions.
+*@
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.Spaces
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Exceptions
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services.Implementations
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+
+@attribute [Authorize]
+@inject NavigationManager Navigation
+
+@inject ILearningSpaceServices LearningSpaceService
+@inject IBuildingsServices BuildingServices
+@inject IFloorServices FloorServices
+@inject ISnackbar Snackbar
+@inject IPermissionContext PermissionContext
+
+@page "/edificios/{buildingId:int}/pisos/{floorId:int}/espacios-de-aprendizaje/{learningSpaceId:int}"
+
+<MudBreadcrumbs Items="_items">
+    <ItemTemplate Context="item">
+        @if (item.Disabled)
+        {
+            <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+        }
+        else
+        {
+            <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+        }
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+<PageTitle>Información del Espacio de Aprendizaje</PageTitle>
+
+    <h1 class="text-h1 mt-4 ms-3">Información del Espacio de aprendizaje</h1>
+
+    @if (this.IsLoading)
+    {
+        <Spinner />
+    }
+    else @if (this.LearningSpace is not null)
+    {
+
+        <!-- Learning Space Information Section -->
+        <MudContainer MaxWidth="MaxWidth.False">
+            <MudPaper Class="px-6 py-4" Elevation="1" Style="max-width: 1000px; margin: auto; border-radius: 8px;">
+                <MudGrid GutterSize="3">
+
+                    <!-- Fila 1: Edificio y Piso en una sola columna -->
+                    <MudItem xs="12" sm="6">
+                        <div style="margin-bottom: 1rem;">
+                            <span class="text-h3">Edificio:</span>
+                            <span class="text-body" style="margin-left: 9rem;">@this.BuildingName</span>
+                        </div>
+                        <div>
+                            <span class="text-h3">Piso:</span>
+                            <span class="text-body" style="margin-left: 10.5rem;">@this.FloorNumber</span>
+                        </div>
+                    </MudItem>
+
+                    <!-- Separación visual -->
+                    <MudItem xs="12">
+                        <div style="margin: 1.25rem 0;"></div>
+                    </MudItem>
+
+                    <!-- Fila 3: Columna izquierda -->
+                    <MudItem xs="12" md="6">
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Nombre:</span><br />
+                            <span class="text-body" style="margin-left: 0rem;">@this.LearningSpace!.Name.Name</span>
+                        </div>
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Capacidad máxima:</span><br />
+                            <span class="text-body" style="margin-left: 0rem;">@this.LearningSpace!.MaxCapacity.Value</span>
+                        </div>
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Tipo de espacio:</span><br />
+                            <span class="text-body" style="margin-left: 0rem;">@this.LearningSpace!.Type.Value</span>
+                        </div>
+                    </MudItem>
+
+                    <!-- Fila 4: Columna derecha -->
+                    <MudItem xs="12" md="6">
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Ancho (m):</span><br />
+                            <span class="text-body" style="margin-left: 0rem;">@this.LearningSpace!.Width.Value</span>
+                        </div>
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Altura (m):</span><br />
+                            <span class="text-body" style="margin-left: 0rem;">@this.LearningSpace!.Height.Value</span>
+                        </div>
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Largo (m):</span><br />
+                            <span class="text-body" style="margin-left: 0rem;">@this.LearningSpace!.Length.Value</span>
+                        </div>
+                    </MudItem>
+
+
+                    <!-- Fila 5: Colores -->
+                    <MudItem xs="12" sm="4">
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Color del cielo raso:</span><br />
+                            <ColorBlock ColorName="@this.LearningSpace!.ColorCeiling.Value" />
+                        </div>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Color de las paredes:</span><br />
+                            <ColorBlock ColorName="@this.LearningSpace!.ColorWalls.Value" />
+                        </div>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <div style="margin-bottom: 1.5rem;">
+                            <span class="text-h3">Color del piso:</span><br />
+                            <ColorBlock ColorName="@this.LearningSpace!.ColorFloor.Value" />
+                        </div>
+                    </MudItem>
+
+                </MudGrid>
+
+                
+                    @if (AreButtonsVisible)
+                    {                        
+                        <!-- Buttons Container -->
+                        <div class="button-container mt-4">
+                            <CustomButton ButtonType="cancel"
+                                            Variant="Variant.Outlined"
+                                            OnClick="@NavigateToLearningSpaceManagement">
+                                            ATRÁS
+                            </CustomButton>
+
+                          <AuthorizeView Policy="Edit Learning Space">
+                              <Authorized>
+                                        <CustomButton ButtonType="add"
+                                                        Variant="Variant.Filled"
+                                                        OnClick="@OnEditClicked">
+                                                        EDITAR
+                                         </CustomButton>
+                                    
+                            </Authorized>
+                        </AuthorizeView>
+                            
+
+                        <AuthorizeView Policy="Delete Learning Space">
+                            <Authorized>
+                                <CustomButton ButtonType="delete"
+                                Variant="Variant.Filled"
+                                                    OnClick="@OnDeleteClicked">
+                                                    ELIMINAR
+                                    </CustomButton>
+                            </Authorized>
+                        </AuthorizeView>
+                            
+                        </div>
+                    }
+                
+        
+
+                <ConfirmDialog @ref="DeleteDialog"
+                               Title="Confirmación"
+                               Message="¿Estás seguro de que deseas eliminar este espacio de aprendizaje?"
+                               OkText="Eliminar"
+                               CancelText="Cancelar"
+                               ColorVarOk="--color-primary1" />
+ 
+            </MudPaper>
+	    </MudContainer>
+
+    @if (!string.IsNullOrEmpty(UserMessage))
+    {
+        <MudAlert Severity="@UserMessageSeverity" Elevation="0" Dense="true" Class="mt-3">
+            @UserMessage
+        </MudAlert>
+    }
+}
+
+@code {
+
+    /// <summary>
+    /// Reference to the delete confirmation dialog.
+    /// </summary>
+    private ConfirmDialog? DeleteDialog;
+
+    /// <summary>
+    /// Route parameter: Building identifier.
+    /// </summary>
+    [Parameter]
+    public int buildingId { get; set; }
+
+    /// <summary>
+    /// Route parameter: Floor identifier.
+    /// </summary>
+    [Parameter]
+    public int floorId { get; set; }
+
+    /// <summary>
+    /// Route parameter: Learning space identifier.
+    /// </summary>
+    [Parameter]
+    public int learningSpaceId { get; set; }
+
+    /// <summary>
+    /// Holds the user and person information to be displayed.
+    /// </summary>
+    private LearningSpace? LearningSpace;
+
+    /// <summary>
+    /// Indicates if the page is loading data.
+    /// </summary>
+    private bool IsLoading = false;
+
+    /// <summary>
+    /// Stores the current floor number.
+    /// </summary>
+    private int FloorNumber = 0;
+
+    /// <summary>
+    /// Stores the current building name.
+    /// </summary>
+    private string BuildingName = "";
+
+    /// <summary>
+    /// Indicates if a delete operation is in progress.
+    /// </summary>
+    private bool IsDeleting = false;
+
+    /// <summary>
+    /// Shows whether the building is valid or not.
+    /// </summary>
+    private bool IsBuildingValid = true;
+
+    /// <summary>
+    /// Shows whether the floor is valid or not.
+    /// </summary>
+    private bool IsFloorValid = true;
+
+    /// <summary>
+    /// Stores a message to be displayed to the user.
+    /// </summary>
+    private string UserMessage = string.Empty;
+
+    /// <summary>
+	/// Severity level for the user message.
+    /// </summary>
+    private Severity UserMessageSeverity = Severity.Normal;
+
+
+    /// <summary>
+    /// Breadcrumb items for navigation.
+    /// </summary>
+    private List<BreadcrumbItem> _items = new();
+
+    protected override void OnParametersSet()
+    {
+        _items = new List<BreadcrumbItem>
+        {
+            new BreadcrumbItem("INICIO", href: "/"),
+            new BreadcrumbItem("EDIFICIOS", href: "/edificios"),
+            new BreadcrumbItem("PISOS", href: $"/edificios/{buildingId}/pisos"),
+            new BreadcrumbItem("ESPACIOS DE APRENDIZAJE", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje"),
+            new BreadcrumbItem("DETALLES DEL ESPACIO DE APRENDIZAJE", href: $"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}")
+        };
+    }
+    /// <summary>
+    /// A dictionary to translate color names from English to Spanish.
+    /// </summary>
+    private readonly Dictionary<string, string> ColorTranslations = new()
+    {
+        { "Red", "Rojo" },
+        { "Green", "Verde" },
+        { "Blue", "Azul" },
+        { "Yellow", "Amarillo" },
+        { "Black", "Negro" },
+        { "White", "Blanco" },
+        { "Orange", "Naranja" },
+        { "Purple", "Púrpura" },
+        { "Gray", "Gris" },
+        { "Brown", "Café" },
+        { "Pink", "Rosado" },
+        { "Cyan", "Cian" },
+        { "Magenta", "Magenta" },
+        { "Lime", "Lima" },
+        { "Teal", "Turquesa" },
+        { "Olive", "Olivo" },
+        { "Navy", "Azul Marino" },
+        { "Maroon", "Granate" },
+        { "Silver", "Plata" },
+        { "Gold", "Dorado" }
+    };
+
+    /// <summary>
+    /// Is the button visible on the form.
+    /// </summary>
+    private bool AreButtonsVisible = true;
+
+    /// <summary>
+    /// Used to translate color names from English to Spanish.
+    /// </summary>
+    /// <param name="englishColor">The value of the color in the database</param>
+    /// <returns>The Spanish translation of the color name, or the original name if no translation exists</returns>
+    private string TranslateColor(string englishColor)
+    {
+        return this.ColorTranslations.TryGetValue(englishColor, out var spanish) ? spanish : englishColor;
+    }
+
+
+    /// <summary>
+    /// Navigates the user back to the previous page.
+    /// </summary>
+    private void GoBack()
+    {
+        if (!this.IsBuildingValid)
+        {
+            Navigation.NavigateTo("/edificios");
+        }
+        else if (!this.IsFloorValid)
+        {
+            Navigation.NavigateTo($"/edificios/{buildingId}/pisos");
+        }
+        else
+        {
+            Navigation.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/");
+        }
+    }
+
+    /// <summary>
+    /// Loads the user information when the page is initialized.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        this.IsLoading = true;
+        bool buildingLoaded = false;
+        bool floorLoaded = false;
+        try
+        {
+            var building = await BuildingServices.DisplayBuildingAsync(this.buildingId);
+
+            if (building is null || string.IsNullOrWhiteSpace(building?.Name?.Name))
+            {
+                this.UserMessage = "No se encontró el edificio solicitado. Por favor, verifique la URL o contacte al administrador.";
+                this.UserMessageSeverity = Severity.Error;
+                this.IsBuildingValid = false;
+                return;
+            }
+
+            this.BuildingName = building.Name.Name;
+            this.IsBuildingValid = true;
+            buildingLoaded = true;
+
+            var floorList = await FloorServices.GetFloorsListAsync(this.buildingId);
+
+            if (floorList is null || !floorList.Any(f => f.FloorId == this.floorId))
+            {
+                this.UserMessage = "No se encontró el piso solicitado. Por favor, verifique la URL o contacte al administrador.";
+                this.UserMessageSeverity = Severity.Error;
+                this.IsFloorValid = false;
+                return;
+            }
+
+            this.FloorNumber = floorList.FirstOrDefault(f => f.FloorId == this.floorId)!.Number.Value;
+            this.IsFloorValid = true;
+            floorLoaded = true;
+
+            // Load the learning space data
+            this.LearningSpace = await LearningSpaceService.GetLearningSpaceAsync(learningSpaceId);
+            if (this.LearningSpace is null)
+            {
+                this.UserMessage = "No se encontró el espacio de aprendizaje solicitado.";
+                this.UserMessageSeverity = Severity.Error;
+            }
+        }
+        catch (DomainException)
+        {
+            if (!buildingLoaded)
+            {
+                this.UserMessage = "Ocurrió un error al cargar la información del edificio.";
+                this.IsBuildingValid = false;
+            }
+            else if (!floorLoaded)
+            {
+                this.UserMessage = "Ocurrió un error al cargar la información del piso.";
+                this.IsFloorValid = false;
+            }
+            else
+            {
+                this.UserMessage = "Ocurrió un error al cargar la información del espacio de aprendizaje.";
+            }
+            this.UserMessageSeverity = Severity.Error;
+        }
+        finally
+        {
+            this.IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Handler for the Delete button click event.
+    /// Deletes the current learning space and navigates back to the list.
+    /// </summary>
+    private async Task OnDeleteClicked()
+    {
+        this.IsDeleting = true;
+
+        this.AreButtonsVisible = false;
+        StateHasChanged();
+
+        this.IsDeleting = true;
+
+        bool confirmed = await DeleteDialog!.ShowAsync();
+
+        this.AreButtonsVisible = false;
+        StateHasChanged();
+
+        if (!confirmed)
+        {
+            this.AreButtonsVisible = true;
+            return;
+        }
+        try {
+            var deleted = await LearningSpaceService.DeleteLearningSpaceAsync(learningSpaceId);
+
+            if (deleted)
+            {
+                Snackbar.Add("Espacio de aprendizaje eliminado exitosamente.", Severity.Success);
+                GoBack();
+            }
+            else
+            {
+                this.UserMessage = "No se pudo eliminar el espacio. Intente de nuevo.";
+                this.UserMessageSeverity = Severity.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            this.UserMessage = $"Error al eliminar el espacio: {ex.Message}";
+            this.UserMessageSeverity = Severity.Error;
+        }
+        finally
+        {
+            this.IsDeleting = false;
+            this.AreButtonsVisible = true;
+            StateHasChanged();
+        }
+}
+
+
+    /// <summary>
+    /// Handler for the Edit button click event.
+    /// Navigates to the update page for the current learning space.
+    /// </summary>
+    private void OnEditClicked()
+    {
+        if (this.LearningSpace is not null)
+        {
+            Navigation.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje/{learningSpaceId}/actualizar");
+        }
+        else
+        {
+            this.UserMessage = "No se puede editar un espacio que no existe.";
+            this.UserMessageSeverity = Severity.Error;
+        }
+    }
+
+    private void NavigateToLearningSpaceManagement()
+    {
+        Navigation.NavigateTo($"/edificios/{buildingId}/pisos/{floorId}/espacios-de-aprendizaje");
+    }
+}

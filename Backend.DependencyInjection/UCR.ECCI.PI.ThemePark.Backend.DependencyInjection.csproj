@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+	
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>      
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+	  <PackageReference Include="SonarAnalyzer.CSharp" Version="10.10.0.116381">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+	  <PackageReference Include="SonarAnalyzer.CSharp.Styling" Version="10.10.0.116381">
+	   <PrivateAssets>all</PrivateAssets>
+	   <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Backend.Application\UCR.ECCI.PI.ThemePark.Backend.Application.csproj" />
+    <ProjectReference Include="..\Backend.Domain\UCR.ECCI.PI.ThemePark.Backend.Domain.csproj" />
+    <ProjectReference Include="..\Backend.Infrastructure\UCR.ECCI.PI.ThemePark.Backend.Infrastructure.csproj" />
+    <ProjectReference Include="..\Backend.Presentation\UCR.ECCI.PI.ThemePark.Backend.Presentation.csproj" />
+  </ItemGroup>
+
+</Project>

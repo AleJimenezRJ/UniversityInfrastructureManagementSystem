@@ -1,0 +1,254 @@
+﻿@page "/edificios/mostrar-edificio/{BuildingId:int}"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Exceptions
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Models
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.Spaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Policy = "View Specific Building")]
+@inject IBuildingsServices BuildingsServices
+@inject IFloorServices FloorServices
+@inject ISnackbar Snackbar
+@inject IPermissionContext PermissionContext
+
+
+@*
+    DisplayBuilding.razor
+    -----------------
+    This Blazor page displays detailed information about a specific building, including its name, dimensions,
+    coordinates, color, and associated area. It allows users to edit or delete the building if they have the necessary permissions.
+*@
+<CleanBreadcrumbs isBuildingBreadcrumb="true" BuildingId="@BuildingId"/>
+<PageTitle>Edificio @building?.Name!.Name</PageTitle>
+
+<h3 class="text-h1 mt-4 ms-3">Información del Edificio</h3>
+
+@if (isLoading)
+{
+    <Spinner />
+}
+else if (building is not null)
+{
+    <!-- Building Information Section -->
+    <MudPaper Class="pa-4 mb-4" Style="background-color: #ffffff;">
+
+        <MudGrid Spacing="2" Class="mb-4" Style="padding-left: 16px;">
+
+            <MudItem xs="4">
+                <TitleLabel Label="Universidad" />
+                <ValueLabel Value="@building!.Area!.Campus!.University!.Name!.Name" />
+            </MudItem>
+            <MudItem xs="4">
+                <TitleLabel Label="Sede" />
+                <ValueLabel Value="@building!.Area!.Campus!.Name!.Name" />
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+            
+            <MudItem xs="4">
+                <TitleLabel Label="Nombre" />
+                <ValueLabel Value="@building.Name!.Name" />
+            </MudItem>
+
+            <MudItem xs="4">
+                <TitleLabel Label="Área" />
+                <ValueLabel Value="@building.Area!.Name!.Name" />
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+          
+            <MudItem xs="3">
+                <TitleLabel Label="Ancho" />
+                <ValueLabel Value="@($"{building.Dimensions!.Width}")" />
+            </MudItem>
+            <MudItem xs="3">
+                <TitleLabel Label="Alto" />
+                <ValueLabel Value="@($"{building.Dimensions!.Height}")" />
+            </MudItem>
+            <MudItem xs="3">
+                <TitleLabel Label="Largo" />
+                <ValueLabel Value="@($"{building.Dimensions!.Length}")" />
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudText />
+            </MudItem>
+
+            <MudItem xs="12"><div style="height: 16px;"></div></MudItem>
+
+            <MudItem xs="3">
+                <TitleLabel Label="Color" />
+                <ColorBlock ColorName="@building.Color!.Value" />
+            </MudItem>
+            <MudItem xs="3">
+                <TitleLabel Label="Coordenada X" />
+                <ValueLabel Value="@($"{building.BuildingCoordinates!.X}")" />
+            </MudItem>
+            <MudItem xs="3">
+                <TitleLabel Label="Coordenada Y" />
+                <ValueLabel Value="@($"{building.BuildingCoordinates!.Y}")" />
+            </MudItem>
+          
+
+        </MudGrid>
+
+        <!-- Buttons Container -->
+        <div class="button-container mt-4">
+            <CustomButton ButtonType="cancel"
+            Variant="Variant.Outlined"
+            OnClick="NavigateToBuildingManagement">
+                ATRÁS
+            </CustomButton>
+
+            <AuthorizeView Policy="Edit Buildings">
+                <Authorized>
+                    <CustomButton ButtonType="add"
+                                    Variant="Variant.Filled"
+                                    OnClick="@(() => NavigationManager.NavigateTo($"/edificios/mostrar-edificio/{@building.BuildingInternalId}/editar-edificio"))">
+                        EDITAR
+                    </CustomButton>
+                </Authorized>
+            </AuthorizeView>
+
+            <AuthorizeView Policy="Delete Buildings">
+                <Authorized>
+                    <CustomButton ButtonType="delete"
+                                  Variant="Variant.Filled"
+                                  OnClick="@OnDeleteClicked">
+                        BORRAR
+                    </CustomButton>
+                </Authorized>
+            </AuthorizeView>
+
+        </div>
+
+        <ConfirmDialog @ref="DeleteDialog"
+        Title="Confirmación"
+        Message="¿Estás seguro de que deseas eliminar este edificio?"
+        OkText="Eliminar"
+        CancelText="Cancelar"
+        ColorVarOk="--color-primary1" />
+
+    </MudPaper>
+
+
+    // Display error message if any
+    @if (showError)
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+}
+else
+{
+    <p><em>Edificio no encontrado.</em></p>
+}
+
+@code {
+    private ConfirmDialog? DeleteDialog;
+
+    private async Task OnDeleteClicked()
+    {
+        showError = false;
+        errorMessage = string.Empty;
+
+        bool confirmed = await DeleteDialog!.ShowAsync();
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var deleted = await BuildingsServices.DeleteBuildingAsync(BuildingId);
+
+            if (deleted)
+            {
+                Snackbar.Add("Edificio eliminado exitosamente.", Severity.Success);
+                NavigationManager.NavigateTo("/edificios");
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo eliminar el edificio.";
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = $"Ocurrió un error inesperado: {ex.Message}";
+        }
+    }
+
+    private void OnEditClicked()
+    {
+        NavigationManager.NavigateTo($"/edificios/mostrar-edificio/{BuildingId}/editar-edificio");
+    }
+
+    private void NavigateToBuildingManagement()
+    {
+        NavigationManager.NavigateTo("/edificios");
+    }
+
+
+    /// <summary>
+    /// The unique identifier of the building to display.
+    /// Extracted from the URL route parameter.
+    /// </summary>
+    [Parameter]
+    public int BuildingId { get; set; }
+
+    /// <summary>
+    /// The building entity to be displayed with all its details.
+    /// </summary>
+    private Building? building;
+
+    /// <summary>
+    /// Indicates whether the component is currently loading data.
+    /// </summary>
+    private bool isLoading = true;
+
+    /// <summary>
+    /// Initializes the component by loading the building details and its floors.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation</returns>
+    protected override async Task OnInitializedAsync()
+    {
+        
+        try
+        {
+            building = await BuildingsServices.DisplayBuildingAsync(BuildingId);
+        }
+        catch
+        {
+            building = null;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Navigation manager for redirecting users after operations.
+    /// </summary>
+    [Inject] NavigationManager NavigationManager { get; set; } = default!;
+
+    /// <summary>
+    /// Indicates whether an error message should be displayed.
+    /// </summary>
+    private bool showError = false;
+    
+    /// <summary>
+    /// Error message to display when operations fail.
+    /// </summary>
+    private string errorMessage = string.Empty;
+}

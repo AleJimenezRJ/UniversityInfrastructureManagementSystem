@@ -1,0 +1,47 @@
+﻿@inject NavigationManager NavigationManager
+@using MudBlazor
+
+<MudBreadcrumbs Items="_items">
+    <ItemTemplate Context="item">
+        <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+@code {
+    private List<BreadcrumbItem> _items = new();
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+        BuildBreadcrumbs(NavigationManager.Uri);
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        BuildBreadcrumbs(e.Location);
+        StateHasChanged();
+    }
+
+    private void BuildBreadcrumbs(string uri)
+    {
+        _items.Clear();
+        var baseUri = NavigationManager.BaseUri.TrimEnd('/');
+        var relativeUri = uri.Replace(baseUri, "").Trim('/');
+        var segments = relativeUri.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        _items.Add(new BreadcrumbItem("Home", href: "/"));
+
+        var path = "";
+        foreach (var segment in segments)
+        {
+            path += "/" + segment;
+            var text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(segment.Replace("-", " "));
+            _items.Add(new BreadcrumbItem(text, href: path));
+        }
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

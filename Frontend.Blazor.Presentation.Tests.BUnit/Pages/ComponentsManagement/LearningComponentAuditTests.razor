@@ -1,0 +1,304 @@
+﻿@using Microsoft.AspNetCore.Components.Rendering
+@using Moq;
+@using MudBlazor;
+@using MudBlazor.Services;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services;
+@using LearningComponentLogView = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Pages.ComponentsManagement.LearningComponentLogView;
+@using LearningComponentAudit = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement.LearningComponentAudit;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement;
+@using Colors = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement.Colors;
+@using Size = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces.Size;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.Spaces;
+@using FluentAssertions;
+
+@inherits TestContext
+
+@code {
+    public LearningComponentAuditTests()
+    {
+        Services.AddMudServices();
+
+        // Setup JSInterop mocks to avoid JS errors during tests involving MudBlazor components.
+        JSInterop.SetupVoid("mudElementRef.addOnBlurEvent", _ => true);
+        JSInterop.SetupVoid("mudPopover.initialize", _ => true);
+        JSInterop.SetupVoid("mudKeyInterceptor.connect", _ => true);
+        JSInterop.SetupVoid("mudPopover.connect", _ => true);
+        JSInterop.Setup<int>("mudpopoverHelper.countProviders", _ => true).SetResult(1);
+    }
+
+    /// <summary>
+    /// Tests that the audit table is correctly rendered when audit records exist.
+    /// Verifies presence of key data in the rendered markup.
+    /// </summary>
+    [Fact]
+    public async Task PageRendersAuditTableWithData()
+    {
+        // Arrange
+        var auditList = new List<LearningComponentAudit>
+        {
+            new LearningComponentAudit
+            {
+                ComponentId = 123,
+                ComponentType = "Projector",
+                Orientation = "North",
+                X = 1m,
+                Y = 2m,
+                Z = 3m,
+                Width = 10m,
+                Depth = 20m,
+                Height = 5m,
+                ModifiedAt = DateTime.Now,
+                Action = "Modificado",
+                ProjectedContent = "Video",
+                ProjectedHeight = 200m,
+                ProjectedWidth = 300m
+            }
+        };
+
+        var auditServiceMock = new Mock<ILearningComponentAuditServices>();
+        auditServiceMock.Setup(s => s.GetPaginatedLearningComponentAuditAsync(It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new PaginatedList<LearningComponentAudit>(auditList, auditList.Count, 10, 0));
+
+        var buildingServiceMock = new Mock<IBuildingsServices>();
+        buildingServiceMock.Setup(s => s.DisplayBuildingAsync(It.IsAny<int>()))
+            .ReturnsAsync(new Building(1, EntityName.Create("Edificio A"), null!, null!, null!, null!));
+
+        var floorServiceMock = new Mock<IFloorServices>();
+        floorServiceMock.Setup(s => s.GetFloorsListAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<Floor> { new Floor(1, FloorNumber.Create(1)) });
+
+        var learningSpaceServiceMock = new Mock<ILearningSpaceServices>();
+        learningSpaceServiceMock.Setup(s => s.GetLearningSpaceAsync(It.IsAny<int>()))
+            .ReturnsAsync(new LearningSpace(EntityName.Create("Laboratorio 101"), null!, null!, null!, null!, null!, null!, null!, null!));
+
+        Services.AddSingleton(auditServiceMock.Object);
+        Services.AddSingleton(buildingServiceMock.Object);
+        Services.AddSingleton(floorServiceMock.Object);
+        Services.AddSingleton(learningSpaceServiceMock.Object);
+        Services.AddSingleton(Mock.Of<ILearningComponentServices>());
+        Services.AddSingleton(Mock.Of<IPermissionContext>());
+
+        // Act
+        var wrapper = RenderWithPopoverLayout(1, 1, 1);
+        var cut = wrapper.FindComponent<LearningComponentLogView>();
+
+        // Assert - Check that key texts related to audit records appear in markup
+        cut.Markup.Should().Contain("Historial de Auditoría de Componentes de Aprendizaje");
+        cut.Markup.Should().Contain("Edificio");
+        cut.Markup.Should().Contain("Laboratorio 101");
+        cut.Markup.Should().Contain("Video");
+        cut.Markup.Should().Contain("PROJ-123");
+        cut.Markup.Should().Contain("Modificado");
+    }
+
+    /// <summary>
+    /// Tests that when there are no audit records, the page shows an empty message.
+    /// </summary>
+    [Fact]
+    public async Task PageShowsEmptyMessage_WhenNoAuditData()
+    {
+        // Arrange
+        var auditServiceMock = new Mock<ILearningComponentAuditServices>();
+        auditServiceMock.Setup(s => s.GetPaginatedLearningComponentAuditAsync(It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new PaginatedList<LearningComponentAudit>(new List<LearningComponentAudit>(), 0, 10, 0));
+
+        var buildingServiceMock = new Mock<IBuildingsServices>();
+
+        buildingServiceMock.Setup(s => s.DisplayBuildingAsync(It.IsAny<int>()))
+            .ReturnsAsync(new Building(EntityName.Create("Building A"), Coordinates.Create(1, 1, 1), Dimension.Create(1, 1, 10),
+                Colors.Create("White"), EntityName.Create("Area")));
+
+        var floorServiceMock = new Mock<IFloorServices>();
+        floorServiceMock
+            .Setup(s => s.GetFloorsListAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<Floor> { new Floor(2, FloorNumber.Create(2)) });
+
+
+        var learningSpaceServiceMock = new Mock<ILearningSpaceServices>();
+        learningSpaceServiceMock.Setup(s => s.GetLearningSpaceAsync(It.IsAny<int>()))
+            .ReturnsAsync(new LearningSpace(
+                EntityName.Create("Laboratorio Vacío"),
+                LearningSpaceType.Create("Classroom"),
+                Capacity.Create(30),
+                Size.Create(10),
+                Size.Create(10),
+                Size.Create(3),
+                Colors.Create("White"),
+                Colors.Create("Gray"),
+                Colors.Create("Black")
+            ));
+
+        Services.AddSingleton(auditServiceMock.Object);
+        Services.AddSingleton(buildingServiceMock.Object);
+        Services.AddSingleton(floorServiceMock.Object);
+        Services.AddSingleton(learningSpaceServiceMock.Object);
+        Services.AddSingleton(Mock.Of<ILearningComponentServices>());
+        Services.AddSingleton(Mock.Of<IPermissionContext>());
+
+        // Act
+        var wrapper = RenderWithPopoverLayout(2, 2, 2);
+        var cut = wrapper.FindComponent<LearningComponentLogView>();
+
+        // Assert
+        cut.Markup.Should().Contain("No hay elementos para mostrar.");
+    }
+
+    /// <summary>
+    /// Verifies that multiple audit records are rendered and displayed correctly.
+    /// </summary>
+    [Fact]
+    public async Task PageRendersMultipleAuditRecords()
+    {
+        // Arrange
+        var auditList = new List<LearningComponentAudit>
+    {
+        new LearningComponentAudit
+        {
+            ComponentId = 1,
+            ComponentType = "Projector",
+            Orientation = "North",
+            X = 1, Y = 1, Z = 1,
+            Width = 5, Depth = 5, Height = 5,
+            ModifiedAt = DateTime.Now,
+            Action = "Creado",
+            ProjectedContent = "Imagen",
+            ProjectedHeight = 100,
+            ProjectedWidth = 150
+        },
+        new LearningComponentAudit
+        {
+            ComponentId = 2,
+            ComponentType = "Whiteboard",
+            Orientation = "South",
+            X = 2, Y = 2, Z = 2,
+            Width = 6, Depth = 6, Height = 6,
+            ModifiedAt = DateTime.Now.AddMinutes(-10),
+            Action = "Eliminado",
+            ProjectedContent = null,
+            ProjectedHeight = null,
+            ProjectedWidth = null
+        }
+    };
+
+        var auditServiceMock = new Mock<ILearningComponentAuditServices>();
+        auditServiceMock.Setup(s => s.GetPaginatedLearningComponentAuditAsync(It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new PaginatedList<LearningComponentAudit>(auditList, auditList.Count, 10, 0));
+
+        var buildingServiceMock = new Mock<IBuildingsServices>();
+        buildingServiceMock.Setup(s => s.DisplayBuildingAsync(It.IsAny<int>()))
+            .ReturnsAsync(new Building(1, EntityName.Create("Edificio X"), null!, null!, null!, null!));
+
+        var floorServiceMock = new Mock<IFloorServices>();
+        floorServiceMock.Setup(s => s.GetFloorsListAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<Floor> { new Floor(1, FloorNumber.Create(1)) });
+
+        var learningSpaceServiceMock = new Mock<ILearningSpaceServices>();
+        learningSpaceServiceMock.Setup(s => s.GetLearningSpaceAsync(It.IsAny<int>()))
+            .ReturnsAsync(new LearningSpace(EntityName.Create("Espacio Z"), null!, null!, null!, null!, null!, null!, null!, null!));
+
+        Services.AddSingleton(auditServiceMock.Object);
+        Services.AddSingleton(buildingServiceMock.Object);
+        Services.AddSingleton(floorServiceMock.Object);
+        Services.AddSingleton(learningSpaceServiceMock.Object);
+        Services.AddSingleton(Mock.Of<ILearningComponentServices>());
+        Services.AddSingleton(Mock.Of<IPermissionContext>());
+
+        // Act
+        var wrapper = RenderWithPopoverLayout(1, 1, 1);
+        var cut = wrapper.FindComponent<LearningComponentLogView>();
+
+        // Assert
+        cut.Markup.Should().Contain("PROJ-1");
+        cut.Markup.Should().Contain("WB-2");
+        cut.Markup.Should().Contain("Creado");
+        cut.Markup.Should().Contain("Eliminado");
+    }
+
+
+    /// <summary>
+    /// Verifies that clicking the back button navigates to the list page.
+    /// </summary>
+    [Fact]
+    public void ClickingBackButton_ShouldNavigateToListPage()
+    {
+        // Arrange
+        var permissionContextMock = new Mock<IPermissionContext>();
+        permissionContextMock.Setup(p => p.HasPermission(It.IsAny<string>())).Returns(true);
+
+        var floorServiceMock = new Mock<IFloorServices>();
+        floorServiceMock.Setup(f => f.GetFloorsListAsync(1))
+            .ReturnsAsync(new List<Floor> { new Floor(1, FloorNumber.Create(1)) });
+
+        var buildingServiceMock = new Mock<IBuildingsServices>();
+        buildingServiceMock.Setup(b => b.DisplayBuildingAsync(1))
+            .ReturnsAsync(new Building(EntityName.Create("Edificio Test"), Coordinates.Create(0, 0, 0), Dimension.Create(10, 10, 10),
+                Colors.Create("Blue"), EntityName.Create("Área")));
+
+        var learningSpaceServiceMock = new Mock<ILearningSpaceServices>();
+        learningSpaceServiceMock.Setup(l => l.GetLearningSpaceAsync(1))
+            .ReturnsAsync(new LearningSpace(EntityName.Create("Espacio A"), LearningSpaceType.Create("Classroom"), Capacity.Create(30),
+                Size.Create(5), Size.Create(5), Size.Create(3), Colors.Create("White"), Colors.Create("White"), Colors.Create("White")));
+
+        var auditServiceMock = new Mock<ILearningComponentAuditServices>();
+        auditServiceMock.Setup(s => s.GetPaginatedLearningComponentAuditAsync(1, 0))
+            .ReturnsAsync(new PaginatedList<LearningComponentAudit>(new List<LearningComponentAudit>(), 0, 10, 0));
+
+        var learningComponentServiceMock = new Mock<ILearningComponentServices>();  // <-- Agregado
+        Services.AddSingleton(learningComponentServiceMock.Object);                  // <-- Agregado
+
+        Services.AddSingleton(permissionContextMock.Object);
+        Services.AddSingleton(floorServiceMock.Object);
+        Services.AddSingleton(buildingServiceMock.Object);
+        Services.AddSingleton(learningSpaceServiceMock.Object);
+        Services.AddSingleton(auditServiceMock.Object);
+
+        var navMan = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+
+        // Act
+        var wrapper = RenderWithPopoverLayout(1, 1, 1);
+        var cut = wrapper.FindComponent<LearningComponentLogView>();
+
+        var backButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("ATRÁS"));
+        backButton?.Click();
+
+        // Assert
+        navMan!.Uri.Should().Contain("/edificios/1/pisos/1/espacios-de-aprendizaje/1/listar-componentes");
+    }
+
+    /// <summary>
+    /// Helper method that renders the LearningComponentLogView component inside a
+    /// layout providing MudPopoverProvider context for proper MudBlazor behavior.
+    /// </summary>
+    /// <param name="buildingId">Building identifier parameter to pass to the component.</param>
+    /// <param name="floorId">Floor identifier parameter to pass to the component.</param>
+    /// <param name="learningSpaceId">Learning space identifier parameter to pass to the component.</param>
+    /// <returns>Rendered component wrapped in a popover provider layout.</returns>
+
+    private IRenderedComponent<PopoverLayout> RenderWithPopoverLayout(int buildingId, int floorId, int learningSpaceId) =>
+        RenderComponent<PopoverLayout>(parameters => parameters
+            .AddChildContent<LearningComponentLogView>(childParams => childParams
+                .Add(p => p.buildingId, buildingId)
+                .Add(p => p.floorId, floorId)
+                .Add(p => p.learningSpaceId, learningSpaceId)
+            ));
+
+    /// <summary>
+    /// Layout component that wraps child content with MudPopoverProvider,
+    /// enabling MudBlazor popover behavior during tests.
+    /// </summary>
+    public class PopoverLayout : ComponentBase
+    {
+        [Parameter] public RenderFragment? ChildContent { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+
+            builder.AddContent(1, ChildContent);
+        }
+    }
+}

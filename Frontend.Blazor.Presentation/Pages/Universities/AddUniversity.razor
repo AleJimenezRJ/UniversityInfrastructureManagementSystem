@@ -1,0 +1,354 @@
+@page "/universidades/agregar-universidad"
+@inherits UniversityComponentBase
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Models
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Infrastructure.Kiota.Models
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@using MudSize = MudBlazor.Size
+@inject ISnackbar Snackbar
+
+@attribute [Authorize(Policy = "Create Universities")]
+@inject IUniversityServices UniversityRepository
+@inject NavigationManager NavigationManager
+
+<Header />
+<CleanBreadcrumbs />
+
+<h3 class="text-h1 mt-4 ms-3">Agregar Universidad</h3>
+
+<div style="padding-bottom: 150px;">
+    <MudPaper Class="mx-auto mt-4 px-6 py-4" Style="max-width: 1000px; border-radius: 8px;">
+
+        <MudGrid GutterSize="3" Style="max-width: 400px;">
+            <MudItem xs="12">
+                <MudText Class="fw-bold mb-1">Nombre:</MudText>
+                <MudTextField @bind-Value="universityName"
+                              Placeholder="ej. Universidad de Costa Rica"
+                              Variant="Variant.Filled"
+                              Dense="true"
+                              OnBlur="@(() => ValidateNameFormat(universityName))"
+                              Error="@(!string.IsNullOrWhiteSpace(NameError))"
+                              ErrorText="@NameError"
+                              FullWidth="true" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudText Class="fw-bold mb-1">País:</MudText>
+                <MudSelect T="string"
+                           Value="countryName"
+                           ValueChanged="OnCountryChanged"
+                           Placeholder="ej. Costa Rica"
+                           Variant="Variant.Filled"
+                           Dense="true"
+                           Error="@(!string.IsNullOrWhiteSpace(CountryError))"
+                           ErrorText="@CountryError"
+                           FullWidth="true">
+                    @foreach (var country in Countries)
+                    {
+                        <MudSelectItem Value="@country">@country</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        @if (showError)
+        {
+            <MudAlert Severity="Severity.Error" Class="my-2">
+                @errorMessage
+            </MudAlert>
+        }
+
+        <div class="d-flex justify-content-end align-items-center mt-4">
+            <div class="d-flex gap-2">
+                <CustomButton ButtonType="cancel" Variant="Variant.Outlined" OnClick="@(() => NavigationManager.NavigateTo("/universidades"))">
+                    CANCELAR
+                </CustomButton>
+
+                <CustomButton ButtonType="add" Variant="Variant.Filled" OnClick="SubmitUniversity">
+                    GUARDAR
+                </CustomButton>
+            </div>
+        </div>
+    </MudPaper>
+</div>
+
+
+@code {
+    /// <summary>
+    /// Collection of building entities to display.
+    /// </summary>
+    private string? universityName;
+    private string? countryName;
+    private bool added;
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+
+    private readonly List<string> Countries = new()
+    {
+    "Afganistán",
+    "Albania",
+    "Argelia",
+    "Andorra",
+    "Angola",
+    "Antigua y Barbuda",
+    "Argentina",
+    "Armenia",
+    "Australia",
+    "Austria",
+    "Azerbaiyán",
+    "Bahamas",
+    "Baréin",
+    "Bangladés",
+    "Barbados",
+    "Bielorrusia",
+    "Bélgica",
+    "Belice",
+    "Benín",
+    "Bután",
+    "Bolivia",
+    "Bosnia y Herzegovina",
+    "Botsuana",
+    "Brasil",
+    "Brunéi",
+    "Bulgaria",
+    "Burkina Faso",
+    "Burundi",
+    "Cabo Verde",
+    "Camboya",
+    "Camerún",
+    "Canadá",
+    "República Centroafricana",
+    "Chad",
+    "Chile",
+    "China",
+    "Colombia",
+    "Comoras",
+    "Congo (Brazzaville)",
+    "Congo (Kinshasa)",
+    "Costa Rica",
+    "Costa de Marfil",
+    "Croacia",
+    "Cuba",
+    "Chipre",
+    "Chequia",
+    "Dinamarca",
+    "Yibuti",
+    "Dominica",
+    "República Dominicana",
+    "Timor Oriental",
+    "Ecuador",
+    "Egipto",
+    "El Salvador",
+    "Guinea Ecuatorial",
+    "Eritrea",
+    "Estonia",
+    "Esuatini",
+    "Etiopía",
+    "Fiyi",
+    "Finlandia",
+    "Francia",
+    "Gabón",
+    "Gambia",
+    "Georgia",
+    "Alemania",
+    "Ghana",
+    "Grecia",
+    "Granada",
+    "Guatemala",
+    "Guinea",
+    "Guinea-Bisáu",
+    "Guyana",
+    "Haití",
+    "Honduras",
+    "Hungría",
+    "Islandia",
+    "India",
+    "Indonesia",
+    "Irán",
+    "Irak",
+    "Irlanda",
+    "Israel",
+    "Italia",
+    "Jamaica",
+    "Japón",
+    "Jordania",
+    "Kazajistán",
+    "Kenia",
+    "Kiribati",
+    "Corea del Norte",
+    "Corea del Sur",
+    "Kosovo",
+    "Kuwait",
+    "Kirguistán",
+    "Laos",
+    "Letonia",
+    "Líbano",
+    "Lesoto",
+    "Liberia",
+    "Libia",
+    "Liechtenstein",
+    "Lituania",
+    "Luxemburgo",
+    "Madagascar",
+    "Malaui",
+    "Malasia",
+    "Maldivas",
+    "Malí",
+    "Malta",
+    "Islas Marshall",
+    "Mauritania",
+    "Mauricio",
+    "México",
+    "Micronesia",
+    "Moldavia",
+    "Mónaco",
+    "Mongolia",
+    "Montenegro",
+    "Marruecos",
+    "Mozambique",
+    "Birmania (Myanmar)",
+    "Namibia",
+    "Nauru",
+    "Nepal",
+    "Países Bajos",
+    "Nueva Zelanda",
+    "Nicaragua",
+    "Níger",
+    "Nigeria",
+    "Macedonia del Norte",
+    "Noruega",
+    "Omán",
+    "Pakistán",
+    "Palaos",
+    "Palestina",
+    "Panamá",
+    "Papúa Nueva Guinea",
+    "Paraguay",
+    "Perú",
+    "Filipinas",
+    "Polonia",
+    "Portugal",
+    "Catar",
+    "Rumanía",
+    "Rusia",
+    "Ruanda",
+    "San Cristóbal y Nieves",
+    "Santa Lucía",
+    "San Vicente y las Granadinas",
+    "Samoa",
+    "San Marino",
+    "Santo Tomé y Príncipe",
+    "Arabia Saudita",
+    "Senegal",
+    "Serbia",
+    "Seychelles",
+    "Sierra Leona",
+    "Singapur",
+    "Eslovaquia",
+    "Eslovenia",
+    "Islas Salomón",
+    "Somalia",
+    "Sudáfrica",
+    "Sudán del Sur",
+    "España",
+    "Sri Lanka",
+    "Sudán",
+    "Surinam",
+    "Suecia",
+    "Suiza",
+    "Siria",
+    "Taiwán",
+    "Tayikistán",
+    "Tanzania",
+    "Tailandia",
+    "Togo",
+    "Tonga",
+    "Trinidad y Tobago",
+    "Túnez",
+    "Turquía",
+    "Turkmenistán",
+    "Tuvalu",
+    "Uganda",
+    "Ucrania",
+    "Emiratos Árabes Unidos",
+    "Reino Unido",
+    "Estados Unidos",
+    "Uruguay",
+    "Uzbekistán",
+    "Vanuatu",
+    "Ciudad del Vaticano",
+    "Venezuela",
+    "Vietnam",
+    "Yemen",
+    "Zambia",
+    "Zimbabue"
+    };
+
+
+    private void OnCountryChanged(string selectedCountry)
+    {
+        countryName = selectedCountry;
+        ValidateCountryFormat(countryName);
+    }
+
+    private async Task SubmitUniversity()
+    {
+        try
+        {
+            // Trigger all field validations
+            ValidateNameFormat(universityName);
+            ValidateCountryFormat(countryName);
+            
+            if (HasValidationErrors())
+            {
+                showError = true;
+                errorMessage = "Por favor corrija los errores en el formulario.";
+                return;
+            }
+
+            showError = false; // Reset error state
+
+            if (string.IsNullOrWhiteSpace(universityName) ||
+                string.IsNullOrWhiteSpace(countryName))
+            {
+                showError = true;
+                errorMessage = "Por favor complete todos los campos requeridos con valores válidos.";
+                return;
+            }
+
+            University newUniversity = new University(new EntityName(universityName), new EntityLocation(countryName));
+            added = await UniversityRepository.AddUniversityAsync(newUniversity);
+
+            if (added)
+            {
+                Snackbar.Add("Universidad agregada exitosamente", Severity.Success);
+                NavigationManager.NavigateTo("/universidades");
+            }
+            else
+            {
+                showError = true;
+                errorMessage = "No se pudo agregar el edificio. Por favor intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            showError = true;
+            errorMessage = $"Ocurrió un error inesperado: {ex.Message}";
+
+        }
+
+
+    }
+
+    private void HandleOk()
+    {
+        NavigationManager.NavigateTo("/universidades");
+    }
+
+}

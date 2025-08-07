@@ -1,0 +1,293 @@
+@using Microsoft.AspNetCore.Components.Rendering
+@using Moq;
+@using MudBlazor;
+@using MudBlazor.Services;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Pages.ComponentsManagement;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.ComponentsManagement;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement;
+@using Orientation = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.ComponentsManagement.Orientation;
+@using Colors = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement.Colors;
+@using Size = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces.Size;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces;
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.Spaces;
+@using FluentAssertions;
+
+@inherits TestContext
+
+@code {
+    /// <summary>
+    /// Initializes the test context and configures necessary services and JSInterop for MudBlazor.
+    /// </summary>
+    public EditLearningComponentTests()
+    {
+        Services.AddMudServices();
+
+        // Setup JSInterop mocks for MudBlazor components
+        JSInterop.SetupVoid("mudElementRef.addOnBlurEvent", _ => true);
+        JSInterop.SetupVoid("mudPopover.initialize", _ => true);
+        JSInterop.SetupVoid("mudKeyInterceptor.connect", _ => true);
+        JSInterop.SetupVoid("mudPopover.connect", _ => true);
+        JSInterop.Setup<int>("mudpopoverHelper.countProviders", _ => true).SetResult(1);
+    }
+
+    /// <summary>
+    /// Verifies that the page shows a loading spinner while fetching component data.
+    /// </summary>
+    [Fact]
+    public void PageShowsLoadingSpinner_WhileFetchingData()
+    {
+        // Arrange
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        var tcs = new TaskCompletionSource<LearningComponent>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123))
+            .Returns(tcs.Task);
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object);
+
+        // Assert
+        cut.Markup.Should().Contain("mud-progress-circular");
+    }
+
+    /// <summary>
+    /// Verifies that the page shows an error message when component cannot be loaded.
+    /// </summary>
+    [Fact]
+    public async Task PageShowsErrorMessage_WhenComponentCannotBeLoaded()
+    {
+        // Arrange
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123))
+            .ThrowsAsync(new Exception("Component not found"));
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object);
+
+        // Act
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        // Assert
+        cut.Markup.Should().Contain("No se pudo cargar el componente");
+    }
+
+    /// <summary>
+    /// Verifies that the page renders correctly with a projector component.
+    /// </summary>
+    [Fact]
+    public async Task PageRendersCorrectly_WithProjectorComponent()
+    {
+        // Arrange
+        var projector = new Projector("Test Content", Area2D.Create(2, 2),
+            Orientation.Create("North"), Coordinates.Create(1, 2, 3), Dimension.Create(1, 2, 3));
+        projector.ComponentId = 123;
+
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123))
+            .ReturnsAsync(projector);
+        componentServiceMock.Setup(s => s.GetLearningComponentsByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new PaginatedList<LearningComponent>(new List<LearningComponent>(), 0, 20, 0));
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object);
+
+        // Act
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        // Assert
+        cut.Markup.Should().Contain("Editar Componente");
+        cut.Markup.Should().Contain("Orientación");
+        cut.Markup.Should().Contain("Posición X");
+        cut.Markup.Should().Contain("Posición Y");
+        cut.Markup.Should().Contain("Ancho");
+        cut.Markup.Should().Contain("Profundidad");
+        cut.Markup.Should().Contain("Alto");
+    }
+
+    /// <summary>
+    /// Verifies that the page renders correctly with a whiteboard component.
+    /// </summary>
+    [Fact]
+    public async Task PageRendersCorrectly_WithWhiteboardComponent()
+    {
+        // Arrange
+        var whiteboard = new Whiteboard(Colors.Create("Red"), 
+            Orientation.Create("South"), Coordinates.Create(1, 2, 3), Dimension.Create(1, 2, 3));
+        whiteboard.ComponentId = 124;
+
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(124))
+            .ReturnsAsync(whiteboard);
+        componentServiceMock.Setup(s => s.GetLearningComponentsByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new PaginatedList<LearningComponent>(new List<LearningComponent>(), 0, 20, 0));
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object, componentId: 124);
+
+        // Act
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        // Assert
+        cut.Markup.Should().Contain("Editar Componente");
+        cut.Markup.Should().Contain("Orientación");
+        cut.Markup.Should().Contain("Posición X");
+        cut.Markup.Should().Contain("Posición Y");
+        cut.Markup.Should().Contain("Ancho");
+        cut.Markup.Should().Contain("Profundidad");
+        cut.Markup.Should().Contain("Alto");
+        cut.Markup.Should().Contain("Color del marcador");
+    }
+
+    /// <summary>
+    /// Verifies that breadcrumb navigation is rendered correctly.
+    /// </summary>
+    [Fact]
+    public async Task BreadcrumbNavigation_RendersCorrectly()
+    {
+        // Arrange
+        var projector = new Projector("Test Content", Area2D.Create(2, 2),
+            Orientation.Create("North"), Coordinates.Create(1, 2, 3), Dimension.Create(1, 2, 3));
+        projector.ComponentId = 123;
+
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123))
+            .ReturnsAsync(projector);
+        componentServiceMock.Setup(s => s.GetLearningComponentsByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new PaginatedList<LearningComponent>(new List<LearningComponent>(), 0, 20, 0));
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object);
+
+        // Act
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        // Assert
+        var breadcrumb = cut.FindComponent<MudBreadcrumbs>();
+        breadcrumb.Should().NotBeNull();
+        cut.Markup.Should().Contain("INICIO");
+        cut.Markup.Should().Contain("EDIFICIOS");
+        cut.Markup.Should().Contain("PISOS");
+        cut.Markup.Should().Contain("ESPACIOS DE APRENDIZAJE");
+    }
+
+    /// <summary>
+    /// Verifies that the cancel button navigates back to the component list.
+    /// </summary>
+    [Fact]
+    public async Task CancelButton_NavigatesToComponentList()
+    {
+        // Arrange
+        var projector = new Projector("Test Content", Area2D.Create(2, 2),
+            Orientation.Create("North"), Coordinates.Create(1, 2, 3), Dimension.Create(1, 2, 3));
+        projector.ComponentId = 123;
+
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123))
+            .ReturnsAsync(projector);
+        componentServiceMock.Setup(s => s.GetLearningComponentsByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new PaginatedList<LearningComponent>(new List<LearningComponent>(), 0, 20, 0));
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object);
+        var navMan = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+
+        // Act
+        await cut.InvokeAsync(() => Task.Delay(100));
+        var cancelButton = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Contains("Cancelar"));
+        if (cancelButton != null)
+        {
+            await cancelButton.ClickAsync(new Microsoft.AspNetCore.Components.Web.MouseEventArgs());
+        }
+
+        // Assert
+        navMan!.Uri.Should().Contain("/edificios/1/pisos/1/espacios-de-aprendizaje/1/listar-componentes");
+    }
+
+    /// <summary>
+    /// Verifies that the page displays building and space information.
+    /// </summary>
+    [Fact]
+    public async Task PageDisplaysContextInformation()
+    {
+        // Arrange
+        var projector = new Projector("Test Content", Area2D.Create(2, 2),
+            Orientation.Create("North"), Coordinates.Create(1, 2, 3), Dimension.Create(1, 2, 3));
+        projector.ComponentId = 123;
+
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123))
+            .ReturnsAsync(projector);
+        componentServiceMock.Setup(s => s.GetLearningComponentsByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new PaginatedList<LearningComponent>(new List<LearningComponent>(), 0, 20, 0));
+
+        var cut = RenderEditLearningComponentPage(componentService: componentServiceMock.Object);
+
+        // Act
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        // Assert
+        cut.Markup.Should().Contain("Test Building");
+        cut.Markup.Should().Contain("Test Space");
+    }
+
+    /// <summary>
+    /// Helper method to render the EditLearningComponent page with mocked services.
+    /// </summary>
+    private IRenderedComponent<PopoverLayout> RenderEditLearningComponentPage(
+        ILearningComponentServices? componentService = null,
+        IBuildingsServices? buildingService = null,
+        IFloorServices? floorService = null,
+        ILearningSpaceServices? learningSpaceService = null,
+        int componentId = 123)
+    {
+        // Set up default mock services
+        var buildingServiceMock = new Mock<IBuildingsServices>();
+        buildingServiceMock.Setup(s => s.DisplayBuildingAsync(1))
+            .ReturnsAsync(new Building(EntityName.Create("Test Building"), Coordinates.Create(1, 1, 1), 
+                Dimension.Create(10, 10, 10), Colors.Create("White"), EntityName.Create("Test Area")));
+
+        var floorServiceMock = new Mock<IFloorServices>();
+        floorServiceMock.Setup(s => s.GetFloorsListAsync(1))
+            .ReturnsAsync(new List<Floor> { new Floor(1, FloorNumber.Create(1)) });
+
+        var learningSpaceServiceMock = new Mock<ILearningSpaceServices>();
+        learningSpaceServiceMock.Setup(s => s.GetLearningSpaceAsync(1))
+            .ReturnsAsync(new LearningSpace(EntityName.Create("Test Space"), LearningSpaceType.Create("Classroom"),
+                Capacity.Create(30), Size.Create(10), Size.Create(10), Size.Create(3),
+                Colors.Create("White"), Colors.Create("White"), Colors.Create("White")));
+
+        var defaultComponentService = new Mock<ILearningComponentServices>();
+        defaultComponentService.Setup(s => s.GetSingleLearningComponentByIdAsync(It.IsAny<int>()))
+            .ReturnsAsync(new Projector("Default Content", Area2D.Create(1, 1),
+                Orientation.Create("North"), Coordinates.Create(0, 0, 0), Dimension.Create(1, 1, 1)));
+        defaultComponentService.Setup(s => s.GetLearningComponentsByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()))
+            .ReturnsAsync(new PaginatedList<LearningComponent>(new List<LearningComponent>(), 0, 20, 0));
+
+        Services.AddSingleton(componentService ?? defaultComponentService.Object);
+        Services.AddSingleton(buildingService ?? buildingServiceMock.Object);
+        Services.AddSingleton(floorService ?? floorServiceMock.Object);
+        Services.AddSingleton(learningSpaceService ?? learningSpaceServiceMock.Object);
+
+        return RenderComponent<PopoverLayout>(parameters => parameters
+            .AddChildContent<EditLearningComponent>(childParams => childParams
+                .Add(p => p.buildingId, 1)
+                .Add(p => p.floorId, 1)
+                .Add(p => p.learningSpaceId, 1)
+                .Add(p => p.ComponentId, componentId)
+            ));
+    }
+
+    /// <summary>
+    /// Layout component that wraps child content with MudPopoverProvider,
+    /// enabling MudBlazor popover behavior during tests.
+    /// </summary>
+    public class PopoverLayout : ComponentBase
+    {
+        [Parameter] public RenderFragment? ChildContent { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+
+            builder.AddContent(1, ChildContent);
+        }
+    }
+}

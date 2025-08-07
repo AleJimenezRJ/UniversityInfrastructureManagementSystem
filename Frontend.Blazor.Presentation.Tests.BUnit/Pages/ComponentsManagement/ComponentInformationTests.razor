@@ -1,0 +1,271 @@
+﻿@using Moq
+@using MudBlazor
+@using MudBlazor.Services
+@using System.Security.Claims
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Pages.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.ComponentsManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement
+@using Orientation = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.ComponentsManagement.Orientation
+@using Colors = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.UniversityManagement.Colors
+@using Size = UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces.Size
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects.Spaces
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.Spaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using FluentAssertions
+@inherits TestContext
+
+@code {
+    /// <summary>
+    /// Initializes the test context and configures required MudBlazor JS interop mocks.
+    /// </summary>
+    public ComponentInformationTests()
+    {
+        // Register MudBlazor services
+        Services.AddMudServices();
+
+        // Set up required JSInterop for MudBlazor
+        JSInterop.SetupVoid("mudElementRef.addOnBlurEvent", _ => true);
+        JSInterop.SetupVoid("mudPopover.initialize", _ => true);
+        JSInterop.SetupVoid("mudKeyInterceptor.connect", _ => true);
+        JSInterop.SetupVoid("mudPopover.connect", _ => true);
+
+        // Register authentication and authorization dependencies required for AuthorizeView
+
+        // 1. Add fake authentication state provider (TestAuthorizationContext)
+        var authContext = this.AddTestAuthorization();
+        authContext.SetAuthorized("TestUser");
+
+        // 2. Mock IAuthorizationService to always allow access (or customize as needed)
+        var authServiceMock = new Mock<IAuthorizationService>();
+        authServiceMock
+            .Setup(x => x.AuthorizeAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<object>(), It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Success());
+
+        Services.AddSingleton<IAuthorizationService>(authServiceMock.Object);
+
+        // 3. Mock IAuthorizationPolicyProvider (required by AuthorizeView)
+        var policyProviderMock = new Mock<IAuthorizationPolicyProvider>();
+        policyProviderMock
+            .Setup(p => p.GetPolicyAsync(It.IsAny<string>()))
+            .ReturnsAsync(new AuthorizationPolicyBuilder().RequireAssertion(_ => true).Build());
+
+        Services.AddSingleton<IAuthorizationPolicyProvider>(policyProviderMock.Object);
+    }
+
+
+    /// <summary>
+    /// Helper method to render the ComponentInformation page with optional mocked services.
+    /// </summary>
+    private IRenderedComponent<ComponentInformation> RenderComponentInformationAsync(
+        ILearningComponentServices? componentService = null,
+        IBuildingsServices? buildingService = null,
+        IFloorServices? floorService = null,
+        ILearningSpaceServices? learningSpaceService = null,
+        IPermissionContext? permissionContext = null,
+        int componentId = 123)
+    {
+        // Register provided or default (mocked) services
+        Services.AddSingleton(componentService ?? Mock.Of<ILearningComponentServices>());
+        Services.AddSingleton(buildingService ?? Mock.Of<IBuildingsServices>());
+        Services.AddSingleton(floorService ?? Mock.Of<IFloorServices>());
+        Services.AddSingleton(learningSpaceService ?? Mock.Of<ILearningSpaceServices>());
+        Services.AddSingleton(permissionContext ?? Mock.Of<IPermissionContext>());
+        Services.AddSingleton(Mock.Of<ISnackbar>());
+        Services.AddSingleton(Mock.Of<IDialogService>());
+
+        // Render the ComponentInformation page with the given parameters
+        return RenderComponent<ComponentInformation>(parameters => parameters
+            .Add(p => p.buildingId, 1)
+            .Add(p => p.floorId, 1)
+            .Add(p => p.learningSpaceId, 1)
+            .Add(p => p.ComponentId, componentId));
+    }
+
+    /// <summary>
+    /// Should show a spinner while the component is loading.
+    /// </summary>
+    [Fact]
+    public async Task ShowsSpinnerWhileLoading()
+    {
+        var mock = new Mock<ILearningComponentServices>();
+        mock.Setup(s => s.GetSingleLearningComponentByIdAsync(It.IsAny<int>()))
+            .Returns(async () => { await Task.Delay(500); return null; });
+
+        var cut = RenderComponentInformationAsync(componentService: mock.Object);
+
+        cut.Markup.Should().Contain("mud-progress-circular");
+    }
+
+    /// <summary>
+    /// Should show component details when the component is successfully loaded.
+    /// </summary>
+    [Fact]
+    public async Task ShowsComponentDetails_WhenComponentIsLoaded()
+    {
+        // Arrange: create a mock projector
+        var projector = new Projector("Some Content", Area2D.Create(2, 2),
+            Orientation.Create("North"), Coordinates.Create(1, 2, 3), Dimension.Create(1, 2, 3));
+        projector.ComponentId = 123;
+
+        // Set up all required services
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(123)).ReturnsAsync(projector);
+
+        var buildingMock = new Mock<IBuildingsServices>();
+        buildingMock.Setup(b => b.DisplayBuildingAsync(1)).ReturnsAsync(
+            new Building(EntityName.Create("Building Test"), Coordinates.Create(0, 0, 0), Dimension.Create(10, 10, 10),
+                Colors.Create("White"), EntityName.Create("Area")));
+
+        var floorMock = new Mock<IFloorServices>();
+        floorMock.Setup(f => f.GetFloorsListAsync(1)).ReturnsAsync(new List<Floor> { new Floor(1, FloorNumber.Create(1)) });
+
+        var learningSpaceMock = new Mock<ILearningSpaceServices>();
+        learningSpaceMock.Setup(l => l.GetLearningSpaceAsync(1)).ReturnsAsync(
+            new LearningSpace(EntityName.Create("Room 1"), LearningSpaceType.Create("Classroom"),
+                Capacity.Create(25), Size.Create(10), Size.Create(10), Size.Create(3),
+                Colors.Create("White"), Colors.Create("White"), Colors.Create("White")));
+
+        var permissionMock = new Mock<IPermissionContext>();
+        permissionMock.Setup(p => p.HasPermission(It.IsAny<string>())).Returns(true);
+
+        // Act: render component with mocked services
+        var cut = RenderComponentInformationAsync(
+            componentService: componentServiceMock.Object,
+            buildingService: buildingMock.Object,
+            floorService: floorMock.Object,
+            learningSpaceService: learningSpaceMock.Object,
+            permissionContext: permissionMock.Object
+        );
+
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        // Assert: check if key values are present in the HTML
+        cut.Markup.Should().Contain("Información del Componente");
+        cut.Markup.Should().Contain("123");
+        cut.Markup.Should().Contain("Norte");
+        cut.Markup.Should().Contain("Building Test");
+        cut.Markup.Should().Contain("Room 1");
+    }
+
+    /// <summary>
+    /// Should show a "not found" message when the component does not exist.
+    /// </summary>
+    [Fact]
+    public async Task ShowsNotFoundMessage_WhenComponentIsNull()
+    {
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(It.IsAny<int>()))
+            .ReturnsAsync((LearningComponent?)null);
+
+        var cut = RenderComponentInformationAsync(componentService: componentServiceMock.Object, componentId: 999);
+
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        cut.Markup.Should().Contain("Componente no encontrado");
+    }
+
+    /// <summary>
+    /// Should show an error message when the service call throws an exception.
+    /// </summary>
+    [Fact]
+    public async Task ShowsErrorMessage_WhenLoadingFails()
+    {
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(It.IsAny<int>()))
+            .ThrowsAsync(new Exception("Test error"));
+
+        var cut = RenderComponentInformationAsync(componentService: componentServiceMock.Object);
+
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        cut.Markup.Should().Contain("Error al cargar componente");
+        cut.Markup.Should().Contain("Test error");
+    }
+
+    /// <summary>
+    /// Should show action buttons when the user has permission.
+    /// </summary>
+    [Fact]
+    public async Task ShowsActionButtons_WhenUserHasPermissions()
+    {
+        var projector = new Projector("Texto", Area2D.Create(1, 1),
+            Orientation.Create("South"), Coordinates.Create(0, 0, 0), Dimension.Create(1, 1, 1));
+        projector.ComponentId = 111;
+
+        var componentServiceMock = new Mock<ILearningComponentServices>();
+        componentServiceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(111)).ReturnsAsync(projector);
+
+        var buildingServiceMock = new Mock<IBuildingsServices>();
+        buildingServiceMock.Setup(b => b.DisplayBuildingAsync(It.IsAny<int>()))
+            .ReturnsAsync(new Building(EntityName.Create("B"), Coordinates.Create(0, 0, 0), Dimension.Create(1, 1, 1), Colors.Create("Blue"), EntityName.Create("A")));
+
+        var floorServiceMock = new Mock<IFloorServices>();
+        floorServiceMock.Setup(f => f.GetFloorsListAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<Floor> { new Floor(111, FloorNumber.Create(1)) });
+
+        var spaceServiceMock = new Mock<ILearningSpaceServices>();
+        spaceServiceMock.Setup(s => s.GetLearningSpaceAsync(It.IsAny<int>()))
+            .ReturnsAsync(new LearningSpace(EntityName.Create("S"), LearningSpaceType.Create("Classroom"), Capacity.Create(1), Size.Create(1), Size.Create(1), Size.Create(1),
+                                            Colors.Create("Red"), Colors.Create("White"), Colors.Create("Black")));
+
+        var permissionMock = new Mock<IPermissionContext>();
+        permissionMock.Setup(p => p.HasPermission("Edit Components")).Returns(true);
+        permissionMock.Setup(p => p.HasPermission("Delete Components")).Returns(true);
+
+        // Register services
+        Services.AddSingleton(componentServiceMock.Object);
+        Services.AddSingleton(buildingServiceMock.Object);
+        Services.AddSingleton(floorServiceMock.Object);
+        Services.AddSingleton(spaceServiceMock.Object);
+        Services.AddSingleton(permissionMock.Object);
+        Services.AddSingleton(Mock.Of<ISnackbar>());
+        Services.AddSingleton(Mock.Of<IDialogService>());
+
+        // Render the component
+        var cut = RenderComponent<ComponentInformation>(parameters => parameters
+            .Add(p => p.buildingId, 1)
+            .Add(p => p.floorId, 111)
+            .Add(p => p.learningSpaceId, 1)
+            .Add(p => p.ComponentId, 111)
+        );
+
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        cut.Markup.Should().Contain("Editar");
+        cut.Markup.Should().Contain("Eliminar");
+    }
+
+    /// <summary>
+    /// Should NOT show action buttons when the user lacks permissions.
+    /// </summary>
+    [Fact]
+    public async Task HidesActionButtons_WhenUserHasNoPermissions()
+    {
+        var projector = new Projector("Text", Area2D.Create(1, 1),
+            Orientation.Create("South"), Coordinates.Create(0, 0, 0), Dimension.Create(1, 1, 1));
+        projector.ComponentId = 112;
+
+        var serviceMock = new Mock<ILearningComponentServices>();
+        serviceMock.Setup(s => s.GetSingleLearningComponentByIdAsync(112)).ReturnsAsync(projector);
+
+        var permissionMock = new Mock<IPermissionContext>();
+        permissionMock.Setup(p => p.HasPermission(It.IsAny<string>())).Returns(false);
+
+        var cut = RenderComponentInformationAsync(
+            componentService: serviceMock.Object,
+            permissionContext: permissionMock.Object,
+            componentId: 112
+        );
+
+        await cut.InvokeAsync(() => Task.Delay(100));
+
+        cut.Markup.Should().NotContain("Editar");
+        cut.Markup.Should().NotContain("Eliminar");
+    }
+
+}

@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
+	<PackageReference Include="Microsoft.AspNetCore.Authentication.Abstractions" Version="2.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Kiota.Bundle" Version="1.19.0" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+	  <ProjectReference Include="..\Frontend.Blazor.Application\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.csproj" />
+	  <ProjectReference Include="..\Frontend.Blazor.Domain\UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.csproj" />
+  </ItemGroup>
+
+
+</Project>

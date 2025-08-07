@@ -1,0 +1,99 @@
+﻿@using MudBlazor
+@using System.Globalization
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Helpers
+@using MudBlazor.Utilities
+
+<div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+    <MudColorPicker 
+                    Palette="ColorPickerPalette"
+                    ShowToolbar="false"
+                    PickerVariant="PickerVariant.Dialog"
+                    ColorPickerView="ColorPickerView.Palette"
+                    Style="@($"min-height: 56px; --selected-color: {SelectedColorHex};")"
+                    DisableTextField="false"
+                    @onblur="HandleBlur"
+                    ColorChanged="HandleColorChanged"
+                    Class="hide-color-text"
+                    @bind-Text="SelectedColorHex" />
+    @if (!HideLabel)
+    {
+        <MudText Class="text-body" style="text-align: center; margin-left: -40px;">@ColorLabel</MudText>
+    }
+</div>
+
+@if (!string.IsNullOrWhiteSpace(ErrorText))
+{
+    <MudText Color="Color.Error" Typo="Typo.caption">@ErrorText</MudText>
+}
+
+@code {
+    [Parameter] public string Label { get; set; } = "Color";
+    [Parameter] public string Value { get; set; } = "#FFFFFF";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string? ErrorText { get; set; }
+    [Parameter] public bool HideLabel { get; set; } = false;
+
+    [Parameter] public EventCallback<string> OnChanged { get; set; }
+    [Parameter] public EventCallback OnBlur { get; set; }
+
+    /// <summary>
+    /// This property binds the selected color in hexadecimal format.
+    /// </summary>
+    private string SelectedColorHex
+    {
+        get => ColorTranslator.Translate(Value, "hex");
+        set
+        {
+            var match = ColorTranslator.GetAllColors()
+                .FirstOrDefault(c => string.Equals(c.Hex, value, StringComparison.OrdinalIgnoreCase));
+            var newValue = !string.IsNullOrWhiteSpace(match.English) ? match.English : value;
+            if (newValue != Value)
+            {
+                ValueChanged.InvokeAsync(newValue);
+                OnChanged.InvokeAsync(newValue); // Dispara evento OnChanged
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously handles the blur event of the color picker.
+    /// </summary>
+    /// <param name="args">The focus event arguments.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task HandleBlur(FocusEventArgs args)
+    {
+        await OnBlur.InvokeAsync();
+    }
+
+    /// <summary>
+    /// Manages the color change event from the color picker.
+    /// </summary>
+    /// <param name="color">The new color in hexadecimal format.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private async Task HandleColorChanged(string color)
+    {
+        // Este evento se dispara con el nuevo color en hexadecimal
+        var match = ColorTranslator.GetAllColors()
+            .FirstOrDefault(c => string.Equals(c.Hex, color, StringComparison.OrdinalIgnoreCase));
+        var newValue = !string.IsNullOrWhiteSpace(match.English) ? match.English : color;
+        if (newValue != Value)
+        {
+            await ValueChanged.InvokeAsync(newValue);
+            await OnChanged.InvokeAsync(newValue); // Esto es redundante si ya está en set { ... }
+        }
+    }
+
+    /// <summary>
+    /// A label for the color, translated to Spanish if available.
+    /// </summary>
+    private string ColorLabel =>
+        !string.IsNullOrWhiteSpace(Value)
+            ? ColorTranslator.Translate(Value, "spanish")
+            : string.Empty;
+
+    /// <summary>
+    /// A collection of colors for the color picker palette.
+    /// </summary>
+    private IEnumerable<MudColor> ColorPickerPalette =>
+        ColorTranslator.GetAllColors().Select(c => new MudColor(c.Hex));
+}

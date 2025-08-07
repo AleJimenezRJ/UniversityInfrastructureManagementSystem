@@ -1,0 +1,39 @@
+@using MudBlazor
+
+<div class="d-flex align-items-center gap-2">
+    <MudTextField @bind-Value="SearchText"
+                  Placeholder="@Placeholder"
+                  Variant="Variant.Outlined"
+                  Class="elegant-search-input"
+                  Immediate="true"
+                  OnKeyDown="@OnKeyDown"
+                  Margin="Margin.Dense"
+                  Style="min-width: 300px;" />
+
+    <MudButton Variant="Variant.Filled"
+               Class="elegant-search-btn"
+               OnClick="@Search">
+        <MudIcon Icon="@Icons.Material.Filled.Search" />
+    </MudButton>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback<string> OnSearch { get; set; }
+
+    [Parameter] public string Placeholder { get; set; } = string.Empty;
+
+    private string SearchText { get; set; } = string.Empty;
+
+    private async Task Search()
+    {
+        if (OnSearch.HasDelegate)
+            await OnSearch.InvokeAsync(SearchText);
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await Search();
+    }
+}

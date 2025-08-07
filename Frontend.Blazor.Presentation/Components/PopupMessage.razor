@@ -1,0 +1,29 @@
+﻿@using MudBlazor
+
+<MudMessageBox @ref="_mudMessageBox" Title="@Title" DisableBackdropClick="true">
+    <MessageContent>
+        @((MarkupString)Message)
+    </MessageContent>
+
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Style="@($"background-color: var({ColorVarOk}); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; transition: background-color 0.2s ease-in-out;")">
+            @OkText
+        </MudButton>
+    </YesButton>
+</MudMessageBox>
+
+@code {
+    private MudMessageBox? _mudMessageBox;
+
+    [Parameter] public string Message { get; set; } = "Operation completed successfully.";
+    [Parameter] public string Title { get; set; } = "Information";
+    [Parameter] public string OkText { get; set; } = "OK";
+    [Parameter] public string ColorVarOk { get; set; } = "--color-primary1";
+    [Parameter] public EventCallback OnAcknowledged { get; set; }
+
+    public async Task ProgrammaticShow()
+    {
+        await _mudMessageBox!.ShowAsync();
+        await OnAcknowledged.InvokeAsync();
+    }
+}

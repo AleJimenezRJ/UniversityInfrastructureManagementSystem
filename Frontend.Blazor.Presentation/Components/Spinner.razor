@@ -1,0 +1,13 @@
+﻿﻿@using MudBlazor
+
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" Class="my-4" />
+    <MudText Class="text-caption">
+        <em>@Texto</em>
+    </MudText>
+</div>
+
+@code {
+    [Parameter]
+    public string Texto { get; set; } = "Cargando...";
+}

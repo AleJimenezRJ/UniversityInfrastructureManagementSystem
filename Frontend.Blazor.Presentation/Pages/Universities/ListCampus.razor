@@ -1,0 +1,120 @@
+@page "/sedes"
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Models
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.UniversityManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+
+@attribute [Authorize]
+@inject ICampusServices CampusRepository
+@inject NavigationManager NavigationManager
+@inject IPermissionContext PermissionContext
+
+@*
+    This page displays a list of campus in the system.
+    It allows users to view details of each campus and navigate to add a new campus if they have the necessary permissions.
+*@
+
+<CleanBreadcrumbs />
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-0">
+         <div style="overflow-x: auto; overflow-y: auto; padding: 1rem; padding-bottom: 80px;">
+        <PageTitle>Administración de Sedes</PageTitle>
+
+    <div style="display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                    width: 100%;
+                    margin-bottom: 1rem;">
+        <h3 class="text-h1" style="margin: 0">Administración de Sedes</h3>
+
+        <AuthorizeView Policy="Create Campus">
+            <Authorized>
+                <CustomButton ButtonType="add"
+                                Variant="Variant.Filled"
+                                OnClick="@GoToAddCampus">
+                    AGREGAR
+                </CustomButton>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+
+    @if (isLoading)
+    {
+        <Spinner />
+    }
+    else
+    {
+        <div class="table-container" style="overflow-x: auto; width: 100%;">
+
+        <MudTable T="Campus"
+                  Items=@campus
+                  Hover="true"
+                  Bordered="true"
+                  Striped="true"
+                  Elevation="1"
+                  Dense="true"
+                  RowsPerPage="10"
+                  Style="width: 100%; table-layout: auto;"
+                  Breakpoint="Breakpoint.None">
+                <HeaderContent>
+                    <MudTh><span class="text-h3 fw-bold">Sede</span></MudTh>
+                    <MudTh><span class="text-h3 fw-bold">Ubicación</span></MudTh>
+                    <MudTh><span class="text-h3 fw-bold">Áreas</span></MudTh>
+                    <MudTh><span class="text-h3 fw-bold">Edificios</span></MudTh>
+                    <MudTh><span class="text-h3 fw-bold">Universidad</span></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Sede">
+                        <MudLink Href="@($"/sedes/mostrar-sede/{context.Name!.Name}")">@context.Name.Name</MudLink>
+                    </MudTd>
+                    <MudTd DataLabel="Ubicación" Class="text-body">@context.Location!.Location</MudTd>
+                    <MudTd DataLabel="Áreas" Class="text-link-blue">
+                        <MudLink Href="/areas" Class="text-link-blue">Ver</MudLink>
+                    </MudTd>
+                    <MudTd DataLabel="Edificios" Class="text-link-blue">
+                        <MudLink Href="/edificios">Ver</MudLink>
+                    </MudTd>
+                    <MudTd DataLabel="Universidad" Class="text-body">@context.University!.Name!.Name</MudTd>
+                </RowTemplate>
+                
+                <NoRecordsContent>
+                    <MudText Class="text-h3"> No hay elementos para mostrar </MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </div>
+    }
+</div>
+</MudContainer>
+
+@code {
+    /// <summary>
+    /// Collection of Campus to display.
+    /// </summary>
+    private IEnumerable<Campus>? campus;
+    private bool isLoading = true;
+
+    /// <summary>
+    /// Calls the CampusRepository to list all campuses asynchronously when the component is initialized.
+    /// </summary>
+    /// <returns></returns>
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        campus = await CampusRepository.ListCampusAsync();
+        isLoading = false;
+    }
+
+    /// <summary>
+    /// Navigate to the Add Campus page.
+    /// </summary>
+    void GoToAddCampus()
+    {
+        NavigationManager.NavigateTo("/sedes/agregar-sede");
+    }
+}

@@ -1,0 +1,227 @@
+﻿@page "/user-details"
+
+@*
+UserDetails.razor
+-----------------
+This Blazor page displays detailed information about a selected user, including personal and account data.
+It uses MudBlazor components for UI layout and styling.
+The user data is loaded based on the selected user ID from the UserNavigationContext.
+The page provides "Delete" and "Edit" buttons for future user management actions.
+*@
+
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities.AccountManagement
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Presentation.Components
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Application.Services.Implementations
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.Entities
+@using UCR.ECCI.PI.ThemePark.Frontend.Blazor.Domain.ValueObjects
+@using MudBlazor.Components
+@using MudBlazor
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize]
+
+@inject UserNavigationContext NavContext
+@inject IUserWithPersonService UserWithPersonService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavManager
+
+<Header />
+
+<MudBreadcrumbs Items="_items">
+    <ItemTemplate Context="item">
+        @if (item.Disabled)
+        {
+            <MudText Typo="Typo.subtitle2">@item.Text.ToUpper()</MudText>
+        }
+        else
+        {
+            <MudLink Href="@item.Href">@item.Text.ToUpper()</MudLink>
+        }
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+<h3 class="text-h1 mt-4 ms-3">Información de Usuario</h3>
+<div style="padding-bottom: 150px;">
+    <div style="background-color: #f5f5f5; min-height: auto; padding-top: 2rem; padding-bottom: 3rem;">
+
+        @* Display user information if loaded, otherwise show loading text *@
+        @if (User is not null)
+        {
+            <MudContainer MaxWidth="MaxWidth.False">
+                <MudPaper Class="px-6 py-4" Elevation="1" Style="max-width: 1000px; margin: auto; border-radius: 8px;">
+                    <MudGrid GutterSize="3">
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Nombre:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.FirstName </MudText>
+                        </MudItem>
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Apellido:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.LastName </MudText>
+                        </MudItem>
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Número de identidad:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.IdentityNumber?.Value</MudText>
+                        </MudItem>
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Fecha de nacimiento:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.BirthDate.Value.ToString("M/d/yyyy")</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" class="my-4" />
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Número de teléfono:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.Phone?.Value</MudText>
+                        </MudItem>
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Correo:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.Email?.Value</MudText>
+                        </MudItem>
+
+                        <MudItem xs="12" class="my-4" />
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Nombre de usuario:</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">@User.UserName?.Value</MudText>
+                        </MudItem>
+
+                        <MudItem xs="6" sm="3">
+                            <MudText Class="fw-bold text-h3">Rol(es):</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="9">
+                            <MudText Class="text-body">
+                                @(User.Roles?.Any() == true ? string.Join(", ", User.Roles) : "Sin rol")
+                            </MudText>
+                        </MudItem>
+
+                    </MudGrid>
+
+                    <div class="button-container">
+                        <CustomButton ButtonType="cancel"
+                                      Variant="Variant.Outlined"
+                                      OnClick="NavigateToUserManagement">
+                            ATRÁS
+                        </CustomButton>
+
+
+
+                        <AuthorizeView Policy="Edit Users">
+                            <Authorized>
+                                <CustomButton ButtonType="add"
+                                              Variant="Variant.Filled"
+                                              OnClick="() => OnEditClicked(User.UserId)">
+                                    EDITAR
+                                </CustomButton>
+                            </Authorized>
+                        </AuthorizeView>
+
+                        <AuthorizeView Policy="Delete Users">
+                            <Authorized>
+                                <CustomButton ButtonType="delete"
+                                              Variant="Variant.Filled"
+                                              OnClick="@OnDeleteClicked">
+                                    ELIMINAR
+                                </CustomButton>
+                            </Authorized>
+                        </AuthorizeView>
+
+
+
+                        
+                    </div>
+
+                </MudPaper>
+            </MudContainer>
+        }
+        else
+        {
+            <MudText Class="ms-4 mt-4">Loading user information...</MudText>
+        }
+    </div>
+</div>
+
+<ConfirmDialog @ref="DeleteDialog"
+               Title="Confirmación"
+               Message="¿Estás seguro de que deseas eliminar este usuario?"
+               OkText="Eliminar"
+               CancelText="Cancelar"
+               ColorVarOk="--color-primary1" />
+
+@code {
+    private UserWithPerson? User;
+    private ConfirmDialog? DeleteDialog;
+
+    private List<BreadcrumbItem> _items = new()
+    {
+        new BreadcrumbItem("INICIO", href: "/"),
+        new BreadcrumbItem("ADMINISTRACIÓN DE USUARIOS", href: "/user-management"),
+        new BreadcrumbItem("DETALLES DEL USUARIO", href: "/user-details")
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (NavContext.SelectedUserId.HasValue)
+        {
+            var users = await UserWithPersonService.GetAllUserWithPersonAsync();
+            User = users.FirstOrDefault(u => u.UserId == NavContext.SelectedUserId);
+        }
+    }
+
+    private async Task OnDeleteClicked()
+    {
+        if (User is null)
+            return;
+
+        bool confirmed = await DeleteDialog!.ShowAsync();
+
+        if (!confirmed)
+            return;
+
+        bool deleted = await UserWithPersonService.DeleteUserWithPersonAsync(User.UserId, User.PersonId);
+
+        if (deleted)
+        {
+            Snackbar.Add("Usuario eliminado exitosamente.", Severity.Success);
+            NavManager.NavigateTo("/user-management");
+        }
+        else
+        {
+            Snackbar.Add("Ocurrió un error al eliminar el usuario.", Severity.Error);
+        }
+    }
+
+    private void OnEditClicked(int userId)
+    {
+        if (User is not null)
+        {
+            NavContext.SelectedUserId = userId;
+            NavManager.NavigateTo("/modify-user");
+        }
+    }
+
+    private void NavigateToUserManagement()
+    {
+        NavManager.NavigateTo("/user-management");
+    }
+}

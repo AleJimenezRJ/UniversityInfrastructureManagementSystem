@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <Name>UCR.ECCI.PI.ThemePark.Database</Name>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>4.1</ProjectVersion>
+    <ProjectGuid>{b57aa8fc-01d3-48ac-b86c-5dc5fd8985ed}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
+    <OutputType>Database</OutputType>
+    <RootPath>
+    </RootPath>
+    <RootNamespace>UCR.ECCI.PI.ThemePark.Database</RootNamespace>
+    <AssemblyName>UCR.ECCI.PI.ThemePark.Database</AssemblyName>
+    <ModelCollation>1033, CI</ModelCollation>
+    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
+    <DeployToDatabase>True</DeployToDatabase>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetLanguage>CS</TargetLanguage>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <SqlServerVerification>False</SqlServerVerification>
+    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
+    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
+    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
+    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
+  <ItemGroup>
+    <Folder Include="Functions" />
+    <Folder Include="Properties" />
+    <Folder Include="Tables" />
+    <Folder Include="Scripts" />
+    <Folder Include="Schemas" />
+  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="Scripts\DefaultData.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Functions\LearningComponentFormattedId.sql" />
+    <Build Include="Tables\Building.sql" />
+    <Build Include="Tables\LearningComponent.sql" />
+    <Build Include="Tables\Whiteboard.sql" />
+    <Build Include="Tables\Projector.sql" />
+    <Build Include="Tables\LearningSpace.sql" />
+    <Build Include="Tables\Floor.sql" />
+    <Build Include="Tables\Area.sql" />
+    <Build Include="Tables\Campus.sql" />
+    <Build Include="Tables\University.sql" />
+    <Build Include="Tables\Guest.sql" />
+    <Build Include="Schemas\InfrastructureSchema.sql" />
+    <Build Include="Schemas\LocationsSchema.sql" />
+    <Build Include="Tables\UserAudit.sql" />
+    <Build Include="Tables\BuildingsLog.sql" />
+    <Build Include="Tables\LearningSpaceLog.sql" />
+    <Build Include="Tables\LearningComponentAudit.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <RefactorLog Include="UCR.ECCI.PI.ThemePark.Database.refactorlog" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Tables\Person.sql" />
+    <Build Include="Tables\Role.sql" />
+    <Build Include="Tables\Permission.sql" />
+    <Build Include="Tables\RolePermission.sql" />
+    <Build Include="Tables\UserRole.sql" />
+    <Build Include="Tables\Student.sql" />
+    <Build Include="Tables\UserAccount.sql" />
+    <Build Include="Tables\Staff.sql" />
+  </ItemGroup>
+</Project>
